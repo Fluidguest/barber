@@ -1,0 +1,33 @@
+# Dependências
+node_modules/
+
+# Builds
+dist/
+build/
+.next/
+out/
+
+# Uploads (storage local)
+storage/
+
+# Ambiente — mantém apenas os .env.example como template
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Testes
+coverage/
+
+# TypeScript incremental
+*.tsbuildinfo
+
+# SO / editores
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

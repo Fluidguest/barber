@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  # ---------------------------------------------------------------------------
+  #  Backend: build + suíte e2e contra um Postgres real, com RLS e constraints
+  #  aplicadas exatamente como em produção (migrate deploy → RLS → constraints).
+  # ---------------------------------------------------------------------------
+  backend:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: barber
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # Dono do banco (migrations, RLS, constraints).
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/barber?schema=public
+      # App em runtime (app_role, sofre RLS). Senha definida no passo de setup.
+      DATABASE_URL: postgresql://app_role:app_test_pw@localhost:5432/barber?schema=public
+      # Segredos de teste (a validação de env relaxa a força fora de produção).
+      JWT_SECRET: ci_test_jwt_secret_com_mais_de_32_chars_000
+      ENCRYPTION_KEY: ci_test_encryption_key_com_mais_de_32_chars_0
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Aplicar migrations (estrutura)
+        run: npx prisma migrate deploy
+
+      - name: Aplicar RLS (segurança multi-tenant)
+        run: psql "$DIRECT_URL" -v ON_ERROR_STOP=1 -f prisma/rls/enable-rls.sql
+
+      - name: Aplicar constraints de negócio
+        run: psql "$DIRECT_URL" -v ON_ERROR_STOP=1 -f prisma/constraints/business-rules.sql
+
+      - name: Definir senha do app_role
+        run: psql "$DIRECT_URL" -c "ALTER ROLE app_role PASSWORD 'app_test_pw';"
+
+      - name: Build
+        run: npm run build
+
+      - name: Testes e2e
+        run: npm run test:e2e
+
+  # ---------------------------------------------------------------------------
+  #  Frontend: typecheck + build (Next.js).
+  # ---------------------------------------------------------------------------
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3333/api

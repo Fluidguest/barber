@@ -1,0 +1,1057 @@
+// ============================================================================
+//  SaaS Barbearias — Schema Prisma (MVP)
+//  Multi-tenant row-level (ADR-001) + soft delete + auditoria.
+//
+//  Convenções obrigatórias:
+//   - Toda tabela de NEGÓCIO tem tenant_id (FK -> Tenant) e RLS ativa
+//     (ver prisma/rls/enable-rls.sql). Exceção: tabelas GLOBAIS da plataforma
+//     (Plan) que são compartilhadas entre todos os tenants.
+//   - Timestamps: created_at, updated_at. Soft delete: deleted_at (nullable).
+//   - Valores monetários em CENTAVOS (Int) — nunca Float.
+//   - Datas/horários sempre em UTC; timezone mora na Unit (ADR-005).
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Client em runtime: app_role (sofre RLS).
+  url       = env("DATABASE_URL")
+  // Migrations / db push: dono do banco (DDL). Prisma Migrate usa esta conexão.
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================================
+//  ENUMS
+// ============================================================================
+
+enum TenantStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED // inadimplente
+  CANCELED
+}
+
+// Perfis fixos do MVP. Em V2 vira RBAC granular (tabela Role/Permission).
+enum UserRole {
+  ADMIN
+  MANAGER
+  RECEPTION
+  BARBER
+  FINANCE
+  MARKETING
+}
+
+enum PlanInterval {
+  MONTHLY
+  QUARTERLY
+  SEMIANNUAL
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELED
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  DONE
+  CANCELED
+  NO_SHOW
+}
+
+enum SaleStatus {
+  OPEN
+  PAID
+  CANCELED
+}
+
+enum PaymentMethod {
+  CASH
+  PIX
+  CREDIT
+  DEBIT
+  LINK
+}
+
+enum CashSessionStatus {
+  OPEN
+  CLOSED
+}
+
+enum CommissionType {
+  PERCENT
+  FIXED
+}
+
+enum CommissionStatus {
+  PENDING
+  CLOSED
+  PAID
+}
+
+enum MessageDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum MessageType {
+  REMINDER
+  CONFIRMATION
+  FREE_TEXT
+}
+
+enum MessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum WhatsAppContentType {
+  TEXT
+  AUDIO
+  IMAGE
+  DOCUMENT
+  VIDEO
+  STICKER
+  LOCATION
+}
+
+enum ConversationStatus {
+  OPEN
+  CLOSED
+}
+
+// ============================================================================
+//  PLATAFORMA — tabelas GLOBAIS (sem tenant_id, sem RLS)
+// ============================================================================
+
+/// Planos que VOCÊ vende (billing da plataforma — ADR-006). Compartilhado.
+model Plan {
+  id           String        @id @default(cuid())
+  name         String
+  slug         String        @unique
+  priceCents   Int           @map("price_cents")
+  interval     PlanInterval  @default(MONTHLY)
+  maxUsers     Int           @default(3) @map("max_users")
+  maxUnits     Int           @default(1) @map("max_units")
+  features     Json          @default("{}")
+  isActive     Boolean       @default(true) @map("is_active")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+// ============================================================================
+//  TENANT + UNIDADE
+// ============================================================================
+
+/// A barbearia (cliente do SaaS). Raiz do isolamento.
+model Tenant {
+  id        String       @id @default(cuid())
+  name      String
+  slug      String       @unique
+  legalName String?      @map("legal_name")
+  document  String?      @map("document") // CNPJ
+  status    TenantStatus @default(TRIAL)
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+  deletedAt DateTime?    @map("deleted_at")
+
+  units             Unit[]
+  users             User[]
+  subscription      Subscription?
+  invoices          PlatformInvoice[]
+  clients           Client[]
+  tags              Tag[]
+  serviceCategories ServiceCategory[]
+  services          Service[]
+  barbers           Barber[]
+  appointments      Appointment[]
+  timeBlocks        TimeBlock[]
+  cashSessions      CashSession[]
+  sales             Sale[]
+  commissionRules   CommissionRule[]
+  commissionEntries CommissionEntry[]
+  whatsappMessages  WhatsAppMessage[]
+  auditLogs         AuditLog[]
+  clientTags        ClientTag[]
+  barberServices    BarberService[]
+  financeCategories FinanceCategory[]
+  financeEntries    FinanceEntry[]
+  products          Product[]
+  stockMovements    StockMovement[]
+  whatsAppConversations WhatsAppConversation[]
+  whatsAppNumbers   WhatsAppNumber[]
+  settings          TenantSettings?
+  storedFiles       StoredFile[]
+
+  @@map("tenants")
+}
+
+/// Unidade/filial. Guarda o timezone (ADR-005). MVP cria 1 unidade default.
+model Unit {
+  id        String    @id @default(cuid())
+  tenantId  String    @map("tenant_id")
+  name      String
+  timezone  String    @default("America/Sao_Paulo")
+  phone     String?
+  address   Json?     // { street, number, city, state, zip }
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  barbers      Barber[]
+  appointments Appointment[]
+  timeBlocks   TimeBlock[]
+  cashSessions CashSession[]
+  sales        Sale[]
+
+  @@index([tenantId])
+  @@map("units")
+}
+
+// ============================================================================
+//  AUTH
+// ============================================================================
+
+model User {
+  id           String    @id @default(cuid())
+  tenantId     String    @map("tenant_id")
+  name         String
+  email        String
+  passwordHash String    @map("password_hash")
+  role         UserRole  @default(RECEPTION)
+  isActive     Boolean   @default(true) @map("is_active")
+  totpSecret   String?   @map("totp_secret") // 2FA (TOTP); criptografado em repouso
+  totpEnabled  Boolean   @default(false) @map("totp_enabled")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  tenant        Tenant               @relation(fields: [tenantId], references: [id])
+  refreshTokens RefreshToken[]
+  resetTokens   PasswordResetToken[]
+  barber        Barber?
+  openedCash    CashSession[]        @relation("CashOpenedBy")
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@map("users")
+}
+
+model RefreshToken {
+  id          String    @id @default(cuid())
+  tenantId    String    @map("tenant_id")
+  userId      String    @map("user_id")
+  tokenHash   String    @unique @map("token_hash")
+  expiresAt   DateTime  @map("expires_at")
+  revokedAt   DateTime? @map("revoked_at")
+  createdByIp String?   @map("created_by_ip")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+/// Operador da PLATAFORMA (quem vende o SaaS) — não pertence a barbearia
+/// nenhuma. Identidade separada de propósito: o token dele não tem `tenantId`,
+/// então não passa nos guards de barbearia, e o token de barbearia não tem
+/// `scope=platform`, então não entra no painel. Tabela GLOBAL (sem tenant_id).
+model PlatformAdmin {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String    @map("password_hash")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@map("platform_admins")
+}
+
+/// Token de redefinição de senha ("esqueci minha senha").
+/// Guardamos apenas o HASH do token (o valor em claro só vai no e-mail),
+/// com expiração curta e uso único.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  tenantId  String    @map("tenant_id")
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// ============================================================================
+//  BILLING DA PLATAFORMA (ADR-006) — Mercado Pago (ADR-004)
+// ============================================================================
+
+model Subscription {
+  id               String             @id @default(cuid())
+  tenantId         String             @unique @map("tenant_id")
+  planId           String             @map("plan_id")
+  status           SubscriptionStatus @default(TRIALING)
+  trialEndsAt      DateTime?          @map("trial_ends_at")
+  currentPeriodEnd DateTime?          @map("current_period_end")
+  externalId       String?           @map("external_id") // preapproval_id do Mercado Pago
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id])
+  plan     Plan              @relation(fields: [planId], references: [id])
+  invoices PlatformInvoice[]
+
+  @@index([tenantId])
+  @@map("subscriptions")
+}
+
+model PlatformInvoice {
+  id             String        @id @default(cuid())
+  tenantId       String        @map("tenant_id")
+  subscriptionId String        @map("subscription_id")
+  amountCents    Int           @map("amount_cents")
+  status         InvoiceStatus @default(PENDING)
+  dueDate        DateTime      @map("due_date")
+  paidAt         DateTime?     @map("paid_at")
+  externalId     String?       @map("external_id") // payment_id do Mercado Pago
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+
+  @@index([tenantId])
+  @@index([subscriptionId])
+  @@map("platform_invoices")
+}
+
+// ============================================================================
+//  CLIENTES + TAGS
+// ============================================================================
+
+model Client {
+  id        String    @id @default(cuid())
+  tenantId  String    @map("tenant_id")
+  name      String
+  phone     String?
+  whatsapp  String?
+  email     String?
+  document  String?   @map("document") // CPF — CIFRADO em repouso (AES-256-GCM, ver common/crypto.util.ts)
+  birthDate DateTime? @map("birth_date")
+  instagram String?
+  origin    String?   // como conheceu (indicação, Instagram, passando na rua...)
+  notes     String?
+  address   Json?     // { zip, street, number, complement, neighborhood, city, state }
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  tenant       Tenant            @relation(fields: [tenantId], references: [id])
+  tags          ClientTag[]
+  appointments  Appointment[]
+  sales         Sale[]
+  messages      WhatsAppMessage[]
+  conversations WhatsAppConversation[]
+
+  @@index([tenantId])
+  @@index([tenantId, name])
+  @@index([tenantId, whatsapp])
+  @@map("clients")
+}
+
+model Tag {
+  id        String    @id @default(cuid())
+  tenantId  String    @map("tenant_id")
+  name      String
+  color     String    @default("#6366f1")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  tenant  Tenant      @relation(fields: [tenantId], references: [id])
+  clients ClientTag[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("tags")
+}
+
+model ClientTag {
+  tenantId String @map("tenant_id")
+  clientId String @map("client_id")
+  tagId    String @map("tag_id")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([clientId, tagId])
+  @@index([tenantId])
+  @@map("client_tags")
+}
+
+// ============================================================================
+//  SERVIÇOS
+// ============================================================================
+
+model ServiceCategory {
+  id        String    @id @default(cuid())
+  tenantId  String    @map("tenant_id")
+  name      String
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  services Service[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("service_categories")
+}
+
+model Service {
+  id          String    @id @default(cuid())
+  tenantId    String    @map("tenant_id")
+  categoryId  String?   @map("category_id")
+  name        String
+  description String?
+  durationMin Int       @map("duration_min")
+  priceCents  Int       @map("price_cents")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  tenant       Tenant           @relation(fields: [tenantId], references: [id])
+  category     ServiceCategory? @relation(fields: [categoryId], references: [id])
+  barbers      BarberService[]
+  appointments Appointment[]
+  saleItems    SaleItem[]
+
+  @@index([tenantId])
+  @@index([categoryId])
+  @@map("services")
+}
+
+// ============================================================================
+//  BARBEIROS
+// ============================================================================
+
+model Barber {
+  id        String    @id @default(cuid())
+  tenantId  String    @map("tenant_id")
+  unitId    String    @map("unit_id")
+  userId    String?   @unique @map("user_id") // login opcional
+  name      String
+  phone     String?
+  whatsapp  String?
+  email     String?
+  document  String?   @map("document") // CPF — CIFRADO em repouso (AES-256-GCM)
+  birthDate DateTime? @map("birth_date")
+  address   Json?     // { zip, street, number, complement, neighborhood, city, state }
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  tenant            Tenant            @relation(fields: [tenantId], references: [id])
+  unit              Unit              @relation(fields: [unitId], references: [id])
+  user              User?             @relation(fields: [userId], references: [id])
+  specialties       BarberService[]
+  schedules         WorkSchedule[]
+  daysOff           DayOff[]
+  appointments      Appointment[]
+  timeBlocks        TimeBlock[]
+  sales             Sale[]
+  saleItems         SaleItem[]
+  commissionRules   CommissionRule[]
+  commissionEntries CommissionEntry[]
+
+  @@index([tenantId])
+  @@index([unitId])
+  @@map("barbers")
+}
+
+model BarberService {
+  tenantId  String @map("tenant_id")
+  barberId  String @map("barber_id")
+  serviceId String @map("service_id")
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  barber  Barber  @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@id([barberId, serviceId])
+  @@index([tenantId])
+  @@map("barber_services")
+}
+
+/// Jornada semanal recorrente. weekday: 0=Dom ... 6=Sáb. Horário local da Unit ("HH:mm").
+model WorkSchedule {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  barberId  String   @map("barber_id")
+  weekday   Int
+  startTime String   @map("start_time") // "09:00"
+  endTime   String   @map("end_time")   // "18:00"
+  createdAt DateTime @default(now()) @map("created_at")
+
+  barber Barber @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([barberId, weekday])
+  @@map("work_schedules")
+}
+
+/// Folga/férias/bloqueio de dia inteiro (intervalo em UTC).
+model DayOff {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  barberId  String   @map("barber_id")
+  startAt   DateTime @map("start_at")
+  endAt     DateTime @map("end_at")
+  reason    String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  barber Barber @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([barberId])
+  @@map("days_off")
+}
+
+// ============================================================================
+//  AGENDA
+// ============================================================================
+
+model Appointment {
+  id         String            @id @default(cuid())
+  tenantId   String            @map("tenant_id")
+  unitId     String            @map("unit_id")
+  clientId   String            @map("client_id")
+  barberId   String            @map("barber_id")
+  serviceId  String            @map("service_id")
+  startAt    DateTime          @map("start_at") // UTC
+  endAt      DateTime          @map("end_at")   // UTC
+  status     AppointmentStatus @default(SCHEDULED)
+  priceCents Int               @map("price_cents")
+  notes      String?
+  createdAt  DateTime          @default(now()) @map("created_at")
+  updatedAt  DateTime          @updatedAt @map("updated_at")
+  deletedAt  DateTime?         @map("deleted_at")
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id])
+  unit     Unit              @relation(fields: [unitId], references: [id])
+  client   Client            @relation(fields: [clientId], references: [id])
+  barber   Barber            @relation(fields: [barberId], references: [id])
+  service  Service           @relation(fields: [serviceId], references: [id])
+  sale     Sale?
+  messages WhatsAppMessage[]
+
+  @@index([tenantId])
+  @@index([tenantId, barberId, startAt]) // consulta de agenda por barbeiro/dia
+  @@index([tenantId, startAt])
+  @@map("appointments")
+}
+
+/// Bloqueio de horário (intervalo, almoço). barberId null = unidade toda.
+model TimeBlock {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  unitId    String   @map("unit_id")
+  barberId  String?  @map("barber_id")
+  startAt   DateTime @map("start_at")
+  endAt     DateTime @map("end_at")
+  reason    String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id])
+  unit   Unit    @relation(fields: [unitId], references: [id])
+  barber Barber? @relation(fields: [barberId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, barberId, startAt])
+  @@map("time_blocks")
+}
+
+// ============================================================================
+//  CAIXA + COMANDA
+// ============================================================================
+
+model CashSession {
+  id           String            @id @default(cuid())
+  tenantId     String            @map("tenant_id")
+  unitId       String            @map("unit_id")
+  openedById   String            @map("opened_by_id")
+  status       CashSessionStatus @default(OPEN)
+  openingCents Int               @default(0) @map("opening_cents")
+  closingCents Int?              @map("closing_cents")
+  openedAt     DateTime          @default(now()) @map("opened_at")
+  closedAt     DateTime?         @map("closed_at")
+
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  unit     Unit   @relation(fields: [unitId], references: [id])
+  openedBy User   @relation("CashOpenedBy", fields: [openedById], references: [id])
+  sales    Sale[]
+
+  @@index([tenantId])
+  @@index([tenantId, unitId, status])
+  @@map("cash_sessions")
+}
+
+/// Comanda de atendimento.
+model Sale {
+  id            String     @id @default(cuid())
+  tenantId      String     @map("tenant_id")
+  unitId        String     @map("unit_id")
+  clientId      String?    @map("client_id")
+  barberId      String?    @map("barber_id")
+  cashSessionId String?    @map("cash_session_id")
+  appointmentId String?    @unique @map("appointment_id")
+  status        SaleStatus @default(OPEN)
+  subtotalCents Int        @default(0) @map("subtotal_cents") // soma dos itens
+  // Acréscimo/desconto: modo PERCENT (valor em pontos-base, ex.: 1000 = 10%) ou
+  // FIXED (valor em centavos). Sinal: negativo = desconto, positivo = acréscimo.
+  adjustmentMode  String?  @map("adjustment_mode")
+  adjustmentValue Int      @default(0) @map("adjustment_value")
+  adjustmentCents Int      @default(0) @map("adjustment_cents") // efeito computado
+  totalCents    Int        @default(0) @map("total_cents") // subtotal + ajuste
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+  deletedAt     DateTime?  @map("deleted_at")
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  unit        Unit         @relation(fields: [unitId], references: [id])
+  client      Client?      @relation(fields: [clientId], references: [id])
+  barber      Barber?      @relation(fields: [barberId], references: [id])
+  cashSession CashSession? @relation(fields: [cashSessionId], references: [id])
+  appointment Appointment? @relation(fields: [appointmentId], references: [id])
+  items       SaleItem[]
+  payments    Payment[]
+  charges     SaleCharge[]
+  commissions CommissionEntry[]
+
+  @@index([tenantId])
+  @@index([tenantId, createdAt])
+  @@index([cashSessionId])
+  @@map("sales")
+}
+
+model SaleItem {
+  id             String  @id @default(cuid())
+  tenantId       String  @map("tenant_id")
+  saleId         String  @map("sale_id")
+  serviceId      String? @map("service_id")
+  productId      String? @map("product_id") // item de produto (baixa estoque)
+  barberId       String? @map("barber_id") // quem executou (base da comissão)
+  description    String
+  quantity       Int     @default(1)
+  unitPriceCents Int     @map("unit_price_cents")
+  totalCents     Int     @map("total_cents")
+
+  sale       Sale             @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  service    Service?         @relation(fields: [serviceId], references: [id])
+  product    Product?         @relation(fields: [productId], references: [id])
+  barber     Barber?          @relation(fields: [barberId], references: [id])
+  commission CommissionEntry?
+
+  @@index([tenantId])
+  @@index([saleId])
+  @@map("sale_items")
+}
+
+/// Situação de uma cobrança online (PIX/link) gerada no PDV.
+enum ChargeStatus {
+  PENDING
+  APPROVED
+  EXPIRED
+  CANCELED
+  FAILED
+}
+
+/// Cobrança online de uma comanda (ex.: PIX do Mercado Pago).
+/// Ao ser APROVADA vira um `Payment` da comanda — o fluxo do caixa não muda.
+model SaleCharge {
+  id           String       @id @default(cuid())
+  tenantId     String       @map("tenant_id")
+  saleId       String       @map("sale_id")
+  provider     String // fake | mercadopago
+  externalId   String?      @map("external_id") // id da cobrança no provedor
+  method       PaymentMethod @default(PIX)
+  amountCents  Int          @map("amount_cents")
+  status       ChargeStatus @default(PENDING)
+  qrCode       String?      @map("qr_code") // copia-e-cola
+  qrCodeBase64 String?      @map("qr_code_base64") // imagem do QR
+  ticketUrl    String?      @map("ticket_url") // link de pagamento
+  expiresAt    DateTime?    @map("expires_at")
+  paidAt       DateTime?    @map("paid_at")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([saleId])
+  @@index([externalId])
+  @@map("sale_charges")
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  tenantId    String        @map("tenant_id")
+  saleId      String        @map("sale_id")
+  method      PaymentMethod
+  amountCents Int           @map("amount_cents")
+  externalId  String?       @map("external_id") // id no Mercado Pago (PIX/link)
+  paidAt      DateTime      @default(now()) @map("paid_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([saleId])
+  @@map("payments")
+}
+
+// ============================================================================
+//  COMISSÃO
+// ============================================================================
+
+/// Regra de comissão. barberId null = regra padrão do tenant. MVP: escopo por serviço.
+model CommissionRule {
+  id        String         @id @default(cuid())
+  tenantId  String         @map("tenant_id")
+  barberId  String?        @map("barber_id")
+  type      CommissionType @default(PERCENT)
+  value     Int            // PERCENT: base 10000 (ex.: 4000 = 40%). FIXED: centavos.
+  isActive  Boolean        @default(true) @map("is_active")
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id])
+  barber Barber? @relation(fields: [barberId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, barberId])
+  @@map("commission_rules")
+}
+
+model CommissionEntry {
+  id         String           @id @default(cuid())
+  tenantId   String           @map("tenant_id")
+  barberId   String           @map("barber_id")
+  saleId     String?          @map("sale_id")
+  saleItemId String?          @unique @map("sale_item_id")
+  baseCents  Int              @map("base_cents")
+  amountCents Int             @map("amount_cents")
+  status     CommissionStatus @default(PENDING)
+  periodRef  String           @map("period_ref") // "2026-07"
+  closedAt   DateTime?        @map("closed_at")
+  createdAt  DateTime         @default(now()) @map("created_at")
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  barber   Barber    @relation(fields: [barberId], references: [id])
+  sale     Sale?     @relation(fields: [saleId], references: [id])
+  saleItem SaleItem? @relation(fields: [saleItemId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, barberId, periodRef])
+  @@map("commission_entries")
+}
+
+// ============================================================================
+//  WHATSAPP (MVP: lembrete + confirmação — ADR-003)
+// ============================================================================
+
+model WhatsAppMessage {
+  id                String              @id @default(cuid())
+  tenantId          String              @map("tenant_id")
+  conversationId    String?             @map("conversation_id")
+  clientId          String?             @map("client_id")
+  appointmentId     String?             @map("appointment_id")
+  direction         MessageDirection    @default(OUTBOUND)
+  type              MessageType         @default(REMINDER)
+  contentType       WhatsAppContentType @default(TEXT) @map("content_type")
+  body              String?
+  mediaUrl          String?             @map("media_url")
+  status            MessageStatus       @default(QUEUED)
+  providerMessageId String?             @map("provider_message_id")
+  payload           Json                @default("{}")
+  scheduledFor      DateTime?           @map("scheduled_for")
+  sentAt            DateTime?           @map("sent_at")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  tenant       Tenant                @relation(fields: [tenantId], references: [id])
+  conversation WhatsAppConversation? @relation(fields: [conversationId], references: [id])
+  client       Client?               @relation(fields: [clientId], references: [id])
+  appointment  Appointment?          @relation(fields: [appointmentId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([conversationId])
+  @@index([appointmentId])
+  @@map("whatsapp_messages")
+}
+
+/// Conversa (thread) com um contato — base do inbox estilo WhatsApp Web.
+model WhatsAppConversation {
+  id             String             @id @default(cuid())
+  tenantId       String             @map("tenant_id")
+  clientId       String?            @map("client_id")
+  contactPhone   String             @map("contact_phone")
+  contactName    String?            @map("contact_name")
+  status         ConversationStatus @default(OPEN)
+  assignedUserId String?            @map("assigned_user_id")
+  unreadCount    Int                @default(0) @map("unread_count")
+  lastMessageAt  DateTime?          @map("last_message_at")
+  lastPreview    String?            @map("last_preview")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id])
+  client   Client?           @relation(fields: [clientId], references: [id])
+  messages WhatsAppMessage[]
+
+  @@unique([tenantId, contactPhone])
+  @@index([tenantId])
+  @@index([tenantId, lastMessageAt])
+  @@map("whatsapp_conversations")
+}
+
+/// Arquivo armazenado (mídia de conversa, fotos/documentos). Bytes ficam no
+/// provider (local/S3); aqui só os metadados. RLS isola por tenant.
+model StoredFile {
+  id          String   @id @default(cuid())
+  tenantId    String   @map("tenant_id")
+  key         String // caminho/chave no provider
+  filename    String
+  contentType String   @map("content_type")
+  size        Int
+  provider    String   @default("local")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@map("stored_files")
+}
+
+/// Configurações por tenant (editáveis pelo admin na interface). Secrets cifrados.
+model TenantSettings {
+  id                  String   @id @default(cuid())
+  tenantId            String   @unique @map("tenant_id")
+  // WhatsApp
+  whatsappProvider    String?  @map("whatsapp_provider") // fake | meta | waha (null = env global)
+  metaToken           String?  @map("meta_token") // cifrado
+  metaPhoneId         String?  @map("meta_phone_id")
+  metaApiVersion      String?  @map("meta_api_version")
+  wahaUrl             String?  @map("waha_url")
+  wahaSession         String?  @map("waha_session")
+  wahaApiKey          String?  @map("waha_api_key") // cifrado
+  whatsappVerifyToken String?  @map("whatsapp_verify_token")
+  reminderLeadHours   Int?     @map("reminder_lead_hours")
+  // Pagamento no PDV (cobrança do cliente final)
+  paymentProvider     String?  @map("payment_provider") // fake | mercadopago (null = env global)
+  mpAccessToken       String?  @map("mp_access_token") // cifrado
+  mpWebhookSecret     String?  @map("mp_webhook_secret") // cifrado — valida a assinatura do webhook
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@map("tenant_settings")
+}
+
+/// Mapeia o número (phone_number_id da Meta) ao tenant — usado pelo webhook.
+model WhatsAppNumber {
+  id            String   @id @default(cuid())
+  tenantId      String   @map("tenant_id")
+  phoneNumberId String   @unique @map("phone_number_id")
+  label         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@map("whatsapp_numbers")
+}
+
+// ============================================================================
+//  AUDITORIA (append-only)
+// ============================================================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String?  @map("tenant_id") // null = ação a nível de plataforma
+  userId    String?  @map("user_id")
+  action    String   // "create" | "update" | "delete" | "login" ...
+  entity    String   // "Appointment", "Client", ...
+  entityId  String?  @map("entity_id")
+  ip        String?
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, entity, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ============================================================================
+//  FINANCEIRO — Contas a Pagar e a Receber
+// ============================================================================
+
+enum FinanceType {
+  PAYABLE // conta a pagar (despesa)
+  RECEIVABLE // conta a receber (receita)
+}
+
+enum FinanceStatus {
+  PENDING
+  PAID
+  CANCELED
+}
+
+enum FinanceCategoryKind {
+  INCOME
+  EXPENSE
+}
+
+model FinanceCategory {
+  id        String              @id @default(cuid())
+  tenantId  String              @map("tenant_id")
+  name      String
+  kind      FinanceCategoryKind
+  createdAt DateTime            @default(now()) @map("created_at")
+  deletedAt DateTime?           @map("deleted_at")
+
+  tenant  Tenant         @relation(fields: [tenantId], references: [id])
+  entries FinanceEntry[]
+
+  @@unique([tenantId, name, kind])
+  @@index([tenantId])
+  @@map("finance_categories")
+}
+
+/// Lançamento financeiro (a pagar ou a receber). Valores em centavos.
+model FinanceEntry {
+  id           String        @id @default(cuid())
+  tenantId     String        @map("tenant_id")
+  type         FinanceType
+  description  String
+  amountCents  Int           @map("amount_cents")
+  dueDate      DateTime      @map("due_date")
+  status       FinanceStatus @default(PENDING)
+  categoryId   String?       @map("category_id")
+  costCenter   String?       @map("cost_center")
+  method       String? // dinheiro, PIX, cartão, boleto, transferência...
+  paidAt       DateTime?     @map("paid_at")
+  notes        String?
+  saleId       String?       @map("sale_id") // origem: comanda do PDV (receita realizada)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  deletedAt    DateTime?     @map("deleted_at")
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id])
+  category FinanceCategory? @relation(fields: [categoryId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, type, status])
+  @@index([tenantId, dueDate])
+  @@index([tenantId, paidAt])
+  @@map("finance_entries")
+}
+
+// ============================================================================
+//  ESTOQUE — Produtos e Movimentações
+// ============================================================================
+
+enum StockMovementType {
+  IN // entrada (compra, ajuste positivo)
+  OUT // saída (venda, consumo, perda, ajuste negativo)
+}
+
+model Product {
+  id           String    @id @default(cuid())
+  tenantId     String    @map("tenant_id")
+  name         String
+  sku          String?
+  barcode      String?
+  brand        String?
+  supplier     String?
+  category     String?
+  unit         String    @default("un") // unidade (un, ml, g...)
+  costCents    Int       @default(0) @map("cost_cents")
+  priceCents   Int       @default(0) @map("price_cents")
+  stockCurrent Int       @default(0) @map("stock_current")
+  stockMin     Int       @default(0) @map("stock_min")
+  expiresAt    DateTime? @map("expires_at")
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  tenant    Tenant          @relation(fields: [tenantId], references: [id])
+  movements StockMovement[]
+  saleItems SaleItem[]
+
+  @@index([tenantId])
+  @@index([tenantId, name])
+  @@index([tenantId, barcode])
+  @@map("products")
+}
+
+/// Movimentação de estoque (append-only). quantity sempre > 0; type define o sinal.
+model StockMovement {
+  id            String            @id @default(cuid())
+  tenantId      String            @map("tenant_id")
+  productId     String            @map("product_id")
+  type          StockMovementType
+  quantity      Int
+  reason        String? // compra, venda, consumo, perda, inventario, ajuste
+  unitCostCents Int?              @map("unit_cost_cents")
+  saleId        String?           @map("sale_id") // origem: comanda do PDV
+  notes         String?
+  createdAt     DateTime          @default(now()) @map("created_at")
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([productId])
+  @@map("stock_movements")
+}
