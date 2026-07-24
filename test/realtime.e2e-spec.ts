@@ -129,7 +129,7 @@ describe('Realtime (e2e)', () => {
     const svc = (await request(app.getHttpServer()).post(mk('/services')).set(auth)
       .send({ name: 'Corte', durationMin: 30, priceCents: 5000 }).expect(201)).body;
     const barber = (await request(app.getHttpServer()).post(mk('/barbers')).set(auth)
-      .send({ name: 'João' }).expect(201)).body;
+      .send({ name: 'João', document: "111.444.777-35", birthDate: "1990-01-15", address: { zip: "01001-000", street: "Rua", number: "1", neighborhood: "Centro", city: "Sao Paulo", state: "SP" } }).expect(201)).body;
     const client = (await request(app.getHttpServer()).post(mk('/clients')).set(auth)
       .send({ name: 'Cliente', phone: '11999990000' }).expect(201)).body;
     await request(app.getHttpServer()).post(mk('/appointments')).set(auth)

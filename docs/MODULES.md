@@ -34,6 +34,13 @@ Padrão de cada módulo: `Controller → Service → Prisma` + DTOs validados +
 - `POST /auth/forgot-password` — envia link de redefinição (rate-limit 5/min; responde **204 sempre**, para não revelar contas)
 - `POST /auth/reset-password` — troca a senha pelo token do e-mail (uso único, expira; **revoga todas as sessões**)
 - `GET /auth/me` — usuário logado (inclui `totpEnabled`)
+- **Multiempresa (conta-dono):**
+  - `GET /auth/companies` — empresas às quais a conta-dono tem acesso
+  - `POST /auth/companies` — cria nova empresa vinculada à conta-dono atual
+  - `PATCH /auth/companies/:tenantId` — renomeia empresa da conta-dono
+  - `POST /auth/switch-company` — alterna a empresa ativa (emite novo token + cookie)
+  - Agrupamento por `users.owner_account_id`, vinculado **só por ação autenticada**
+    (criar empresa logado). Coincidência de e-mail **não** dá acesso (testado).
 - `POST /auth/2fa/setup` · `POST /auth/2fa/enable` · `POST /auth/2fa/disable` — 2FA (TOTP; segredo cifrado)
 
 ### clients
@@ -238,6 +245,8 @@ Quem **vende** o sistema, não uma barbearia. Tabela global `platform_admins`.
 - `GET /platform/stats` — total/ativas/teste/suspensas/canceladas
 - `GET /platform/tenants?search=` · `GET /platform/tenants/:id` (volumes agregados)
 - `POST /platform/tenants/:id/suspend` · `.../reactivate`
+- `POST /platform/tenants/:id/enter` — **entra na empresa** (impersonation): token
+  de acesso curto mapeado ao admin dela, com registro no log (quem entrou).
 - Guard próprio (`PlatformAuthGuard`): token de barbearia não entra; token de
   plataforma não acessa dados de barbearia; operador reconferido no banco a cada
   request. Expõe só métricas de plataforma. Primeiro operador via

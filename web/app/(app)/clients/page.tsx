@@ -9,6 +9,7 @@ interface ClientListItem {
   phone: string | null;
   whatsapp: string | null;
   email: string | null;
+  discountBalanceCents: number;
 }
 
 interface Address {
@@ -27,6 +28,7 @@ interface ClientDetail extends ClientListItem {
   origin: string | null;
   notes: string | null;
   address: Address | null;
+  discountBalanceCents: number;
 }
 
 const EMPTY = {
@@ -59,6 +61,9 @@ export default function ClientsPage() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  // Saldo de desconto do cliente em edição.
+  const [balanceCents, setBalanceCents] = useState(0);
+  const [balanceInput, setBalanceInput] = useState("");
 
   const fail = (e: unknown) =>
     setError(e instanceof ApiError ? e.message : "Erro inesperado");
@@ -106,8 +111,29 @@ export default function ClientsPage() {
         city: a.city ?? "",
         state: a.state ?? "",
       });
+      setBalanceCents(c.discountBalanceCents ?? 0);
+      setBalanceInput("");
       setEditingId(id);
       setOpen(true);
+    } catch (e) {
+      fail(e);
+    }
+  }
+
+  /** Define o saldo de desconto (valor absoluto em reais). */
+  async function saveBalance() {
+    if (!editingId) return;
+    const reais = Number(balanceInput.replace(",", "."));
+    if (!Number.isFinite(reais) || reais < 0) return;
+    setError("");
+    try {
+      const r = await api<{ discountBalanceCents: number }>(
+        `/clients/${editingId}/discount-balance`,
+        { method: "PATCH", body: JSON.stringify({ setCents: Math.round(reais * 100) }) },
+      );
+      setBalanceCents(r.discountBalanceCents);
+      setBalanceInput("");
+      await load();
     } catch (e) {
       fail(e);
     }
@@ -255,6 +281,46 @@ export default function ClientsPage() {
             />
           </label>
 
+          {/* Saldo de desconto — aplicado automaticamente no próximo atendimento */}
+          {editingId && (
+            <div className="mb-4 rounded-lg border border-border bg-surface-2 p-4">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-sm font-medium">Saldo de desconto</span>
+                <span className="text-lg font-semibold text-success">
+                  {(balanceCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                </span>
+              </div>
+              <p className="mb-2 text-xs text-muted">
+                Aplicado automaticamente no próximo atendimento (comanda). Ajuste
+                manual define o valor total do crédito.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  value={balanceInput}
+                  onChange={(e) => setBalanceInput(e.target.value)}
+                  placeholder="Novo saldo (ex.: 30,00)"
+                  className="w-40 rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-primary"
+                />
+                <button
+                  type="button"
+                  onClick={saveBalance}
+                  className="rounded-lg border border-border px-3 py-2 text-sm hover:border-primary"
+                >
+                  Definir saldo
+                </button>
+                {balanceCents > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => { setBalanceInput("0"); }}
+                    className="rounded-lg border border-border px-3 py-2 text-sm text-muted hover:border-danger hover:text-danger"
+                  >
+                    Zerar
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-2">
             <button
               type="submit"
@@ -280,7 +346,7 @@ export default function ClientsPage() {
             <tr>
               <th className="px-4 py-3 font-medium">Nome</th>
               <th className="px-4 py-3 font-medium">Contato</th>
-              <th className="px-4 py-3 font-medium">E-mail</th>
+              <th className="px-4 py-3 font-medium">Saldo desconto</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
@@ -289,7 +355,15 @@ export default function ClientsPage() {
               <tr key={c.id} className="border-t border-border">
                 <td className="px-4 py-3">{c.name}</td>
                 <td className="px-4 py-3 text-muted">{c.whatsapp ?? c.phone ?? "—"}</td>
-                <td className="px-4 py-3 text-muted">{c.email ?? "—"}</td>
+                <td className="px-4 py-3">
+                  {c.discountBalanceCents > 0 ? (
+                    <span className="text-success">
+                      {(c.discountBalanceCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    </span>
+                  ) : (
+                    <span className="text-muted">—</span>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-right">
                   <button
                     onClick={() => startEdit(c.id)}

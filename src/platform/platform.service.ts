@@ -142,6 +142,37 @@ export class PlatformService {
     return this.setStatus(id, 'ACTIVE', adminEmail);
   }
 
+  /**
+   * Operador "entra" numa empresa para suporte/gestão: emite um access token
+   * de curta duração mapeado ao admin daquela empresa (impersonation). Ação
+   * sensível — fica registrada no log com quem a executou.
+   */
+  async enterTenant(id: string, adminEmail: string) {
+    const tenant = await this.system.tenant.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true, name: true, slug: true },
+    });
+    if (!tenant) throw new NotFoundException('Barbearia não encontrada');
+
+    const admin = await this.system.user.findFirst({
+      where: { tenantId: id, role: 'ADMIN', isActive: true, deletedAt: null },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, email: true, role: true },
+    });
+    if (!admin) {
+      throw new NotFoundException('Empresa sem administrador ativo');
+    }
+
+    const accessToken = await this.jwt.signAsync(
+      { sub: admin.id, tenantId: id, role: admin.role, impersonatedBy: adminEmail },
+      { expiresIn: Number(process.env.PLATFORM_IMPERSONATION_TTL ?? 1800) },
+    );
+    this.logger.warn(
+      `${adminEmail} ENTROU na empresa ${tenant.slug} (como ${admin.email})`,
+    );
+    return { accessToken, tenant, actingAs: admin.email };
+  }
+
   private async setStatus(
     id: string,
     status: 'ACTIVE' | 'SUSPENDED',

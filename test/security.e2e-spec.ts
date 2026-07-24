@@ -47,7 +47,7 @@ describe('Segurança (e2e)', () => {
     A.service = (await request(app.getHttpServer())
       .post(mk('/services')).set(auth(tokenA)).send({ name: 'Corte', durationMin: 30, priceCents: 5000 }).expect(201)).body.id;
     A.barber = (await request(app.getHttpServer())
-      .post(mk('/barbers')).set(auth(tokenA)).send({ name: 'Barbeiro A' }).expect(201)).body.id;
+      .post(mk('/barbers')).set(auth(tokenA)).send({ name: 'Barbeiro A', document: "111.444.777-35", birthDate: "1990-01-15", address: { zip: "01001-000", street: "Rua", number: "1", neighborhood: "Centro", city: "Sao Paulo", state: "SP" } }).expect(201)).body.id;
     A.product = (await request(app.getHttpServer())
       .post(mk('/products')).set(auth(tokenA)).send({ name: 'Pomada', priceCents: 3000, stockCurrent: 5 }).expect(201)).body.id;
     A.finance = (await request(app.getHttpServer())

@@ -19,6 +19,7 @@ const DETAIL = {
   adjustmentMode: true,
   adjustmentValue: true,
   adjustmentCents: true,
+  clientCreditCents: true,
   totalCents: true,
   clientId: true,
   barberId: true,
@@ -208,7 +209,10 @@ export class SalesService {
         select: {
           id: true,
           status: true,
+          subtotalCents: true,
           totalCents: true,
+          clientId: true,
+          clientCreditCents: true,
           appointmentId: true,
           unit: { select: { timezone: true } },
         },
@@ -217,7 +221,7 @@ export class SalesService {
       if (sale.status !== 'OPEN') {
         throw new BadRequestException('Comanda não está aberta');
       }
-      if (sale.totalCents <= 0) {
+      if (sale.subtotalCents <= 0) {
         throw new BadRequestException('Comanda sem itens');
       }
       const agg = await tx.payment.aggregate({
@@ -235,6 +239,13 @@ export class SalesService {
         data: { status: 'PAID' },
         select: DETAIL,
       });
+      // Baixa o crédito de desconto usado do saldo do cliente.
+      if (sale.clientId && sale.clientCreditCents > 0) {
+        await tx.client.update({
+          where: { id: sale.clientId },
+          data: { discountBalanceCents: { decrement: sale.clientCreditCents } },
+        });
+      }
       // Se veio da agenda, marca o atendimento como concluído.
       if (sale.appointmentId) {
         await tx.appointment.updateMany({
@@ -287,20 +298,33 @@ export class SalesService {
 
     const sale = await tx.sale.findFirst({
       where: { id: saleId },
-      select: { adjustmentMode: true, adjustmentValue: true },
+      select: { adjustmentMode: true, adjustmentValue: true, clientId: true },
     });
     const adjustmentCents = computeAdjustment(
       subtotal,
       sale?.adjustmentMode,
       sale?.adjustmentValue ?? 0,
     );
+    const afterAdjustment = Math.max(0, subtotal + adjustmentCents);
+
+    // Crédito do cliente aplicado automaticamente: usa o saldo dele, limitado
+    // ao que resta a pagar. É baixado do saldo somente ao FECHAR a comanda.
+    let clientCreditCents = 0;
+    if (sale?.clientId) {
+      const client = await tx.client.findFirst({
+        where: { id: sale.clientId, deletedAt: null },
+        select: { discountBalanceCents: true },
+      });
+      clientCreditCents = Math.min(client?.discountBalanceCents ?? 0, afterAdjustment);
+    }
 
     await tx.sale.update({
       where: { id: saleId },
       data: {
         subtotalCents: subtotal,
         adjustmentCents,
-        totalCents: Math.max(0, subtotal + adjustmentCents),
+        clientCreditCents,
+        totalCents: Math.max(0, afterAdjustment - clientCreditCents),
       },
     });
     return this.detail(tx, saleId);

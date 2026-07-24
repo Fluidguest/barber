@@ -244,6 +244,10 @@ model User {
   isActive     Boolean   @default(true) @map("is_active")
   totpSecret   String?   @map("totp_secret") // 2FA (TOTP); criptografado em repouso
   totpEnabled  Boolean   @default(false) @map("totp_enabled")
+  // Multiempresa: usuários que representam a MESMA pessoa (dono que gerencia
+  // várias barbearias) compartilham este id. Só é vinculado por ação
+  // autenticada (criar empresa logado) — coincidência de e-mail NÃO agrupa.
+  ownerAccountId String? @map("owner_account_id")
   lastLoginAt  DateTime? @map("last_login_at")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
@@ -373,6 +377,9 @@ model Client {
   origin    String?   // como conheceu (indicação, Instagram, passando na rua...)
   notes     String?
   address   Json?     // { zip, street, number, complement, neighborhood, city, state }
+  // Crédito de desconto do cliente: aplicado automaticamente no próximo
+  // atendimento (comanda) e ajustável manualmente. Nunca negativo.
+  discountBalanceCents Int @default(0) @map("discount_balance_cents")
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
@@ -479,6 +486,8 @@ model Barber {
   document  String?   @map("document") // CPF — CIFRADO em repouso (AES-256-GCM)
   birthDate DateTime? @map("birth_date")
   address   Json?     // { zip, street, number, complement, neighborhood, city, state }
+  pixKey    String?   @map("pix_key")   // chave PIX (opcional)
+  bankData  Json?     @map("bank_data") // { bank, agency, account, accountType, holder } (opcional)
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
@@ -644,7 +653,10 @@ model Sale {
   adjustmentMode  String?  @map("adjustment_mode")
   adjustmentValue Int      @default(0) @map("adjustment_value")
   adjustmentCents Int      @default(0) @map("adjustment_cents") // efeito computado
-  totalCents    Int        @default(0) @map("total_cents") // subtotal + ajuste
+  // Crédito de desconto do cliente aplicado AUTOMATICAMENTE nesta comanda
+  // (vem do saldo em Client.discountBalanceCents; baixado do saldo ao fechar).
+  clientCreditCents Int    @default(0) @map("client_credit_cents")
+  totalCents    Int        @default(0) @map("total_cents") // subtotal + ajuste − crédito
   createdAt     DateTime   @default(now()) @map("created_at")
   updatedAt     DateTime   @updatedAt @map("updated_at")
   deletedAt     DateTime?  @map("deleted_at")

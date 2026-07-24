@@ -52,7 +52,7 @@ describe('Agenda de atendimentos (e2e)', () => {
     serviceId = svc.body.id;
     const b = await request(app.getHttpServer())
       .post(mk('/barbers')).set(auth(tokenA))
-      .send({ name: 'Barbeiro Ag', specialtyIds: [serviceId] }).expect(201);
+      .send({ name: 'Barbeiro Ag', document: "111.444.777-35", birthDate: "1990-01-15", address: { zip: "01001-000", street: "Rua", number: "1", neighborhood: "Centro", city: "Sao Paulo", state: "SP" }, specialtyIds: [serviceId] }).expect(201);
     barberId = b.body.id;
 
     // 2026-07-20 é segunda-feira (weekday 1). Jornada 09:00-18:00 (local da unidade).

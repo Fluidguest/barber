@@ -1,8 +1,10 @@
 import {
   ArrayUnique,
   IsArray,
+  IsDefined,
   IsEmail,
   IsISO8601,
+  IsNotEmpty,
   IsOptional,
   IsString,
   MaxLength,
@@ -10,38 +12,60 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { IsCPF } from '../../common/cpf.validator';
 
-/** Endereço do barbeiro (mesma forma do cliente). */
+/** Endereço COMPLETO do barbeiro (obrigatório no cadastro; complemento opcional). */
 export class BarberAddressDto {
-  @IsOptional() @IsString() @MaxLength(9) zip?: string;
-  @IsOptional() @IsString() @MaxLength(120) street?: string;
-  @IsOptional() @IsString() @MaxLength(20) number?: string;
+  @IsString() @IsNotEmpty({ message: 'CEP é obrigatório' }) @MaxLength(9) zip: string;
+  @IsString() @IsNotEmpty({ message: 'Rua é obrigatória' }) @MaxLength(120) street: string;
+  @IsString() @IsNotEmpty({ message: 'Número é obrigatório' }) @MaxLength(20) number: string;
   @IsOptional() @IsString() @MaxLength(80) complement?: string;
-  @IsOptional() @IsString() @MaxLength(80) neighborhood?: string;
-  @IsOptional() @IsString() @MaxLength(80) city?: string;
-  @IsOptional() @IsString() @MaxLength(2) state?: string;
+  @IsString() @IsNotEmpty({ message: 'Bairro é obrigatório' }) @MaxLength(80) neighborhood: string;
+  @IsString() @IsNotEmpty({ message: 'Cidade é obrigatória' }) @MaxLength(80) city: string;
+  @IsString() @IsNotEmpty({ message: 'UF é obrigatória' }) @MaxLength(2) state: string;
+}
+
+/** Dados bancários do barbeiro (todos OPCIONAIS). */
+export class BankDataDto {
+  @IsOptional() @IsString() @MaxLength(80) bank?: string;
+  @IsOptional() @IsString() @MaxLength(20) agency?: string;
+  @IsOptional() @IsString() @MaxLength(30) account?: string;
+  @IsOptional() @IsString() @MaxLength(20) accountType?: string; // corrente | poupança
+  @IsOptional() @IsString() @MaxLength(120) holder?: string;     // titular
 }
 
 export class CreateBarberDto {
+  // ---- Obrigatórios ----
   @IsString()
-  @MinLength(2)
+  @MinLength(2, { message: 'Informe o nome completo' })
   @MaxLength(120)
   name: string;
 
+  @IsCPF({ message: 'CPF inválido' })
+  document: string;
+
+  @IsISO8601({}, { message: 'Data de nascimento inválida' })
+  @IsNotEmpty({ message: 'Data de nascimento é obrigatória' })
+  birthDate: string;
+
+  @IsDefined({ message: 'Endereço é obrigatório' })
+  @ValidateNested()
+  @Type(() => BarberAddressDto)
+  address: BarberAddressDto;
+
+  // ---- Opcionais ----
   @IsOptional() @IsString() @MaxLength(20) phone?: string;
   @IsOptional() @IsString() @MaxLength(20) whatsapp?: string;
   @IsOptional() @IsEmail() @MaxLength(180) email?: string;
 
-  /** CPF (apenas dígitos ou formatado) — cifrado em repouso. */
-  @IsOptional() @IsString() @MaxLength(14) document?: string;
+  /** Chave PIX (opcional). */
+  @IsOptional() @IsString() @MaxLength(140) pixKey?: string;
 
-  /** Data de nascimento (YYYY-MM-DD). */
-  @IsOptional() @IsISO8601() birthDate?: string;
-
+  /** Dados bancários (opcionais). */
   @IsOptional()
   @ValidateNested()
-  @Type(() => BarberAddressDto)
-  address?: BarberAddressDto;
+  @Type(() => BankDataDto)
+  bankData?: BankDataDto;
 
   /** Unidade. Se omitida, usa a unidade padrão (Matriz) do tenant. */
   @IsOptional()

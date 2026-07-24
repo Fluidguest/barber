@@ -52,7 +52,7 @@ describe('Dashboard (e2e)', () => {
       .post(mk('/services')).set(auth(tokenA))
       .send({ name: 'Corte', durationMin: 30, priceCents: 5000 }).expect(201)).body.id;
     barberId = (await request(app.getHttpServer())
-      .post(mk('/barbers')).set(auth(tokenA)).send({ name: 'Barbeiro Dash' }).expect(201)).body.id;
+      .post(mk('/barbers')).set(auth(tokenA)).send({ name: 'Barbeiro Dash', document: "111.444.777-35", birthDate: "1990-01-15", address: { zip: "01001-000", street: "Rua", number: "1", neighborhood: "Centro", city: "Sao Paulo", state: "SP" } }).expect(201)).body.id;
 
     // Regra de comissão 40%.
     await request(app.getHttpServer())

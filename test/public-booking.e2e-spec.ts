@@ -45,7 +45,7 @@ describe('Agendamento online (e2e)', () => {
     // Barbeiro
     const barber = await request(app.getHttpServer())
       .post(mk('/barbers')).set(authHeader(token))
-      .send({ name: 'João' })
+      .send({ name: 'João', document: "111.444.777-35", birthDate: "1990-01-15", address: { zip: "01001-000", street: "Rua", number: "1", neighborhood: "Centro", city: "Sao Paulo", state: "SP" } })
       .expect(201);
     barberId = barber.body.id;
 

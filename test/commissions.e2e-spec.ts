@@ -66,9 +66,9 @@ describe('Comissões (e2e)', () => {
       .post(mk('/services')).set(auth(tokenA))
       .send({ name: 'Corte', durationMin: 30, priceCents: 5000 }).expect(201)).body.id;
     barber1 = (await request(app.getHttpServer())
-      .post(mk('/barbers')).set(auth(tokenA)).send({ name: 'Barbeiro 1' }).expect(201)).body.id;
+      .post(mk('/barbers')).set(auth(tokenA)).send({ name: 'Barbeiro 1', document: "111.444.777-35", birthDate: "1990-01-15", address: { zip: "01001-000", street: "Rua", number: "1", neighborhood: "Centro", city: "Sao Paulo", state: "SP" } }).expect(201)).body.id;
     barber2 = (await request(app.getHttpServer())
-      .post(mk('/barbers')).set(auth(tokenA)).send({ name: 'Barbeiro 2' }).expect(201)).body.id;
+      .post(mk('/barbers')).set(auth(tokenA)).send({ name: 'Barbeiro 2', document: "111.444.777-35", birthDate: "1990-01-15", address: { zip: "01001-000", street: "Rua", number: "1", neighborhood: "Centro", city: "Sao Paulo", state: "SP" } }).expect(201)).body.id;
 
     await request(app.getHttpServer())
       .post(mk('/cash-sessions/open')).set(auth(tokenA)).send({ openingCents: 0 }).expect(201);

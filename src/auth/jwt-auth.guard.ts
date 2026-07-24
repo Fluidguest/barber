@@ -1,6 +1,7 @@
 import {
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   HttpException,
   Injectable,
   UnauthorizedException,
@@ -39,6 +40,7 @@ export class JwtAuthGuard implements CanActivate {
     const token = header.slice('Bearer '.length);
 
     let user: AuthUser;
+    let impersonatedBy: string | undefined;
     try {
       const payload = await this.jwt.verifyAsync(token);
       user = {
@@ -46,6 +48,7 @@ export class JwtAuthGuard implements CanActivate {
         tenantId: payload.tenantId,
         role: payload.role,
       };
+      impersonatedBy = payload.impersonatedBy;
       if (!user.userId || !user.tenantId) {
         throw new UnauthorizedException('Token inválido');
       }
@@ -53,6 +56,14 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Token inválido ou expirado');
     }
     (req as Request & { user: AuthUser }).user = user;
+
+    // Sessão de suporte do operador (impersonation) é SOMENTE LEITURA: só GET.
+    // Qualquer escrita é bloqueada — o operador inspeciona sem alterar dados.
+    if (impersonatedBy && req.method !== 'GET') {
+      throw new ForbiddenException(
+        'Sessão de suporte é somente leitura. Ações de escrita não são permitidas.',
+      );
+    }
 
     // Rotas @AllowSuspended pulam a checagem de status (login/billing).
     const allowSuspended = this.reflector.getAllAndOverride<boolean>(

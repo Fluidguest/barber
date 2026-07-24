@@ -17,6 +17,7 @@ export default function ServicesPage() {
   const [name, setName] = useState("");
   const [duration, setDuration] = useState("30");
   const [price, setPrice] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -34,23 +35,43 @@ export default function ServicesPage() {
     load();
   }, []);
 
-  async function create(e: React.FormEvent) {
+  function resetForm() {
+    setEditingId(null);
+    setName("");
+    setPrice("");
+    setDuration("30");
+  }
+
+  /** Prepara o formulário para editar um serviço existente. */
+  function startEdit(s: Service) {
+    setEditingId(s.id);
+    setName(s.name);
+    setDuration(String(s.durationMin));
+    setPrice((s.priceCents / 100).toFixed(2).replace(".", ","));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  /** Cria (POST) ou atualiza (PATCH) conforme o modo. */
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
     setSaving(true);
     setError("");
+    const payload = {
+      name,
+      durationMin: parseInt(duration, 10) || 30,
+      priceCents: reaisToCents(price),
+    };
     try {
-      await api("/services", {
-        method: "POST",
-        body: JSON.stringify({
-          name,
-          durationMin: parseInt(duration, 10) || 30,
-          priceCents: reaisToCents(price),
-        }),
-      });
-      setName("");
-      setPrice("");
-      setDuration("30");
+      if (editingId) {
+        await api(`/services/${editingId}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await api("/services", { method: "POST", body: JSON.stringify(payload) });
+      }
+      resetForm();
       await load();
     } catch (e) {
       fail(e);
@@ -75,7 +96,7 @@ export default function ServicesPage() {
       <p className="mb-6 text-sm text-muted">{services.length} cadastrados</p>
 
       <form
-        onSubmit={create}
+        onSubmit={submit}
         className="mb-6 flex flex-wrap items-end gap-3 rounded-xl border border-border bg-surface p-4"
       >
         <label className="flex-1">
@@ -109,8 +130,17 @@ export default function ServicesPage() {
           disabled={saving}
           className="rounded-lg bg-primary px-5 py-2 font-medium text-primary-fg hover:opacity-90 disabled:opacity-50"
         >
-          {saving ? "..." : "Adicionar"}
+          {saving ? "..." : editingId ? "Salvar edição" : "Adicionar"}
         </button>
+        {editingId && (
+          <button
+            type="button"
+            onClick={resetForm}
+            className="rounded-lg border border-border px-4 py-2 text-sm text-muted hover:border-primary"
+          >
+            Cancelar
+          </button>
+        )}
       </form>
 
       {error && (
@@ -136,6 +166,12 @@ export default function ServicesPage() {
                 <td className="px-4 py-3 text-muted">{s.durationMin} min</td>
                 <td className="px-4 py-3">{brl(s.priceCents)}</td>
                 <td className="px-4 py-3 text-right">
+                  <button
+                    onClick={() => startEdit(s)}
+                    className="mr-3 text-xs text-muted hover:text-primary"
+                  >
+                    editar
+                  </button>
                   <button
                     onClick={() => remove(s.id)}
                     className="text-xs text-muted hover:text-danger"

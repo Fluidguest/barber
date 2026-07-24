@@ -34,7 +34,7 @@ describe('Relatórios (e2e)', () => {
     const svc = (await request(app.getHttpServer())
       .post(mk('/services')).set(auth(token)).send({ name: 'Corte', durationMin: 30, priceCents: 5000 }).expect(201)).body;
     barberId = (await request(app.getHttpServer())
-      .post(mk('/barbers')).set(auth(token)).send({ name: 'João' }).expect(201)).body.id;
+      .post(mk('/barbers')).set(auth(token)).send({ name: 'João', document: "111.444.777-35", birthDate: "1990-01-15", address: { zip: "01001-000", street: "Rua", number: "1", neighborhood: "Centro", city: "Sao Paulo", state: "SP" } }).expect(201)).body.id;
     await request(app.getHttpServer())
       .post(mk('/commission-rules')).set(auth(token)).send({ barberId, type: 'PERCENT', value: 4000 }).expect(201);
     productId = (await request(app.getHttpServer())

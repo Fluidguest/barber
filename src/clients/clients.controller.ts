@@ -12,6 +12,7 @@ import {
 import { ClientsService } from './clients.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
+import { AdjustDiscountBalanceDto } from './dto/adjust-discount-balance.dto';
 import { AuthUser, JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 
@@ -42,6 +43,16 @@ export class ClientsController {
     @Body() dto: UpdateClientDto,
   ) {
     return this.clients.update(user.tenantId, id, dto);
+  }
+
+  /** Ajuste manual do saldo de desconto do cliente. */
+  @Patch(':id/discount-balance')
+  adjustDiscountBalance(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: AdjustDiscountBalanceDto,
+  ) {
+    return this.clients.adjustDiscountBalance(user.tenantId, id, dto);
   }
 
   @Delete(':id')

@@ -37,6 +37,7 @@ interface Sale {
   adjustmentMode: "PERCENT" | "FIXED" | null;
   adjustmentValue: number;
   adjustmentCents: number;
+  clientCreditCents: number;
   totalCents: number;
   barberId: string | null;
   items: Item[];
@@ -506,6 +507,14 @@ export default function PosPage() {
                   >
                     Aplicar
                   </button>
+                </div>
+              )}
+
+              {/* Crédito de desconto do cliente (automático) */}
+              {sale.clientCreditCents > 0 && (
+                <div className="mt-2 flex items-center justify-between text-sm text-success">
+                  <span>Crédito do cliente</span>
+                  <span>-{brl(sale.clientCreditCents)}</span>
                 </div>
               )}
             </div>

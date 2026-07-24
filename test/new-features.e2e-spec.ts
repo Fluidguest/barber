@@ -31,7 +31,7 @@ describe('Novas features (e2e)', () => {
         email: 'carlos@x.com',
         document: '123.456.789-09',
         birthDate: '1990-05-10',
-        address: { zip: '01001-000', street: 'Rua A', number: '10', city: 'São Paulo', state: 'SP' },
+        address: { zip: '01001-000', street: 'Rua A', number: '10', neighborhood: 'Centro', city: 'São Paulo', state: 'SP' },
       })
       .expect(201);
 
@@ -49,13 +49,42 @@ describe('Novas features (e2e)', () => {
   it('atualiza barbeiro sem apagar o CPF quando omitido', async () => {
     const created = (await request(app.getHttpServer())
       .post(mk('/barbers')).set(A)
-      .send({ name: 'Editar', document: '111.222.333-96' }).expect(201)).body;
+      .send({ name: 'Editar', document: '111.222.333-96', birthDate: '1990-01-15', address: { zip: '01001-000', street: 'Rua', number: '1', neighborhood: 'Centro', city: 'Sao Paulo', state: 'SP' } }).expect(201)).body;
 
     const upd = (await request(app.getHttpServer())
       .patch(mk(`/barbers/${created.id}`)).set(A)
       .send({ phone: '11955554444' }).expect(200)).body;
     expect(upd.document).toBe('111.222.333-96'); // preservado
     expect(upd.phone).toBe('11955554444');
+  });
+
+  it('recusa cadastro de barbeiro com CPF inválido e com campos obrigatórios faltando', async () => {
+    // CPF com dígitos verificadores errados
+    await request(app.getHttpServer())
+      .post(mk('/barbers')).set(A)
+      .send({
+        name: 'CPF Ruim', document: '111.111.111-11', birthDate: '1990-01-01',
+        address: { zip: '1', street: 'R', number: '1', neighborhood: 'C', city: 'SP', state: 'SP' },
+      })
+      .expect(400);
+    // sem endereço e sem nascimento
+    await request(app.getHttpServer())
+      .post(mk('/barbers')).set(A)
+      .send({ name: 'Incompleto', document: '111.444.777-35' })
+      .expect(400);
+  });
+
+  it('aceita dados bancários e chave PIX (opcionais)', async () => {
+    const b = (await request(app.getHttpServer())
+      .post(mk('/barbers')).set(A)
+      .send({
+        name: 'Com Banco', document: '111.444.777-35', birthDate: '1988-03-03',
+        address: { zip: '01001-000', street: 'Rua', number: '1', neighborhood: 'Centro', city: 'Sao Paulo', state: 'SP' },
+        pixKey: 'carlos@pix.com',
+        bankData: { bank: 'Nubank', agency: '0001', account: '12345-6', accountType: 'corrente', holder: 'Com Banco' },
+      }).expect(201)).body;
+    expect(b.pixKey).toBe('carlos@pix.com');
+    expect(b.bankData.bank).toBe('Nubank');
   });
 
   // ---- 2. Planos por intervalo ----
@@ -75,7 +104,7 @@ describe('Novas features (e2e)', () => {
     const svc2 = (await request(app.getHttpServer()).post(mk('/services')).set(A)
       .send({ name: 'Barba', durationMin: 20, priceCents: 3000 }).expect(201)).body;
     const barber = (await request(app.getHttpServer()).post(mk('/barbers')).set(A)
-      .send({ name: 'Ag Barber' }).expect(201)).body;
+      .send({ name: 'Ag Barber', document: "111.444.777-35", birthDate: "1990-01-15", address: { zip: "01001-000", street: "Rua", number: "1", neighborhood: "Centro", city: "Sao Paulo", state: "SP" } }).expect(201)).body;
     const c1 = (await request(app.getHttpServer()).post(mk('/clients')).set(A)
       .send({ name: 'Cli 1', phone: '11900000001' }).expect(201)).body;
     const c2 = (await request(app.getHttpServer()).post(mk('/clients')).set(A)
@@ -192,5 +221,56 @@ describe('Novas features (e2e)', () => {
     const closed = await request(app.getHttpServer())
       .post(mk(`/sales/${sale.id}/close`)).set(A).expect(201);
     expect(closed.body.status).toBe('PAID');
+  });
+
+  // ---- 6. Saldo de desconto do cliente ----
+  it('aplica saldo de desconto do cliente no atendimento e baixa ao fechar', async () => {
+    await request(app.getHttpServer()).post(mk('/cash-sessions/current')).set(A);
+    const svc = (await request(app.getHttpServer()).post(mk('/services')).set(A)
+      .send({ name: 'Serv Credito', durationMin: 30, priceCents: 10000 }).expect(201)).body;
+    const client = (await request(app.getHttpServer()).post(mk('/clients')).set(A)
+      .send({ name: 'Cliente Credito', phone: '11900001111' }).expect(201)).body;
+
+    // ajuste manual do saldo: R$ 30
+    const adj = (await request(app.getHttpServer())
+      .patch(mk(`/clients/${client.id}/discount-balance`)).set(A)
+      .send({ setCents: 3000 }).expect(200)).body;
+    expect(adj.discountBalanceCents).toBe(3000);
+
+    // comanda para esse cliente, 1 item de R$100
+    const sale = (await request(app.getHttpServer()).post(mk('/sales')).set(A)
+      .send({ clientId: client.id }).expect(201)).body;
+    let detail = (await request(app.getHttpServer()).post(mk(`/sales/${sale.id}/items`)).set(A)
+      .send({ serviceId: svc.id, quantity: 1 }).expect(201)).body;
+    // crédito aplicado automaticamente: total 100 − 30 = 70
+    expect(detail.clientCreditCents).toBe(3000);
+    expect(detail.totalCents).toBe(7000);
+
+    // paga o total com crédito e fecha
+    await request(app.getHttpServer()).post(mk(`/sales/${sale.id}/payments`)).set(A)
+      .send({ method: 'CASH', amountCents: 7000 }).expect(201);
+    await request(app.getHttpServer()).post(mk(`/sales/${sale.id}/close`)).set(A).expect(201);
+
+    // saldo do cliente zerou (usou os R$30)
+    const after = (await request(app.getHttpServer())
+      .get(mk(`/clients/${client.id}`)).set(A).expect(200)).body;
+    expect(after.discountBalanceCents).toBe(0);
+  });
+
+  it('não aplica crédito maior que o valor da comanda', async () => {
+    await request(app.getHttpServer()).post(mk('/cash-sessions/current')).set(A);
+    const svc = (await request(app.getHttpServer()).post(mk('/services')).set(A)
+      .send({ name: 'Serv Barato', durationMin: 15, priceCents: 2000 }).expect(201)).body;
+    const client = (await request(app.getHttpServer()).post(mk('/clients')).set(A)
+      .send({ name: 'Cliente Saldo Alto', phone: '11900002222' }).expect(201)).body;
+    await request(app.getHttpServer()).patch(mk(`/clients/${client.id}/discount-balance`)).set(A)
+      .send({ setCents: 5000 }).expect(200); // saldo R$50, comanda R$20
+
+    const sale = (await request(app.getHttpServer()).post(mk('/sales')).set(A)
+      .send({ clientId: client.id }).expect(201)).body;
+    const detail = (await request(app.getHttpServer()).post(mk(`/sales/${sale.id}/items`)).set(A)
+      .send({ serviceId: svc.id, quantity: 1 }).expect(201)).body;
+    expect(detail.clientCreditCents).toBe(2000); // limitado ao valor da comanda
+    expect(detail.totalCents).toBe(0);
   });
 });

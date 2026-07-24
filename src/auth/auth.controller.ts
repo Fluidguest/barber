@@ -3,13 +3,15 @@ import {
   Controller,
   Get,
   HttpCode,
+  Param,
+  Patch,
   Post,
   Req,
   Res,
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
-import { IsEmail, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
@@ -37,6 +39,31 @@ class TotpCodeDto {
   @IsString()
   @IsNotEmpty()
   code: string;
+}
+
+class CreateCompanyDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  barbershopName: string;
+
+  @Matches(/^[a-z0-9-]{3,40}$/, {
+    message: 'slug deve ter 3-40 caracteres: letras minúsculas, números e hífen',
+  })
+  slug: string;
+}
+
+class RenameCompanyDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  name: string;
+}
+
+class SwitchCompanyDto {
+  @IsString()
+  @IsNotEmpty()
+  tenantId: string;
 }
 
 class ForgotPasswordDto {
@@ -134,6 +161,49 @@ export class AuthController {
   @Get('me')
   me(@CurrentUser() user: AuthUser) {
     return this.auth.me(user);
+  }
+
+  // ---- Multiempresa (Controle Geral) ----
+
+  /** Empresas às quais a conta-dono tem acesso (para alternar). */
+  @UseGuards(JwtAuthGuard)
+  @Get('companies')
+  companies(@CurrentUser() user: AuthUser) {
+    return this.auth.listCompanies(user);
+  }
+
+  /** Cria uma nova empresa vinculada à conta-dono atual. */
+  // Criar empresa provisiona um tenant novo — limite baixo para evitar abuso
+  // (dono criando dezenas de barbearias de teste em sequência).
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @UseGuards(JwtAuthGuard)
+  @Post('companies')
+  createCompany(@CurrentUser() user: AuthUser, @Body() dto: CreateCompanyDto) {
+    return this.auth.createCompany(user, dto);
+  }
+
+  /** Renomeia uma empresa da conta-dono. */
+  @UseGuards(JwtAuthGuard)
+  @Patch('companies/:tenantId')
+  renameCompany(
+    @CurrentUser() user: AuthUser,
+    @Param('tenantId') tenantId: string,
+    @Body() dto: RenameCompanyDto,
+  ) {
+    return this.auth.renameCompany(user, tenantId, dto.name);
+  }
+
+  /** Alterna a empresa ativa — emite tokens novos e atualiza o cookie. */
+  @UseGuards(JwtAuthGuard)
+  @Post('switch-company')
+  async switchCompany(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: SwitchCompanyDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const session = await this.auth.switchCompany(user, dto.tenantId);
+    setRefreshCookie(res, session.refreshToken);
+    return session;
   }
 
   // ---- 2FA (TOTP) ----

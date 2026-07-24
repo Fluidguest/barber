@@ -116,7 +116,13 @@ describe('Catálogo: serviços e barbeiros (e2e)', () => {
     const barber = await request(app.getHttpServer())
       .post(mk('/barbers'))
       .set(auth(tokenA))
-      .send({ name: 'João Barbeiro', specialtyIds: [serviceAId] })
+      .send({
+        name: 'João Barbeiro',
+        document: '111.444.777-35',
+        birthDate: '1990-01-15',
+        address: { zip: '01001-000', street: 'Rua', number: '1', neighborhood: 'Centro', city: 'Sao Paulo', state: 'SP' },
+        specialtyIds: [serviceAId],
+      })
       .expect(201);
     expect(barber.body.specialties).toEqual([{ serviceId: serviceAId }]);
 

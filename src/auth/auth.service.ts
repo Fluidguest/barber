@@ -8,8 +8,9 @@ import { JwtService } from '@nestjs/jwt';
 import { Prisma } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { authenticator } from 'otplib';
-import { createHash, randomBytes } from 'crypto';
+import { createHash, randomBytes, randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { MailService } from '../mail/mail.service';
 import { encryptField, decryptField } from '../common/crypto.util';
 import { RegisterDto } from './dto/register.dto';
@@ -25,41 +26,20 @@ interface TokenPair {
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly system: SystemPrismaService,
     private readonly jwt: JwtService,
     private readonly mail: MailService,
   ) {}
 
   async register(dto: RegisterDto): Promise<TokenPair & { tenantId: string }> {
-    const existing = await this.prisma.tenant.findUnique({
-      where: { slug: dto.slug },
-    });
-    if (existing) {
-      throw new ConflictException('Slug de barbearia já está em uso');
-    }
-
-    const passwordHash = await argon2.hash(dto.password);
-
-    const result = await this.prisma.$transaction(async (tx) => {
-      const tenant = await tx.tenant.create({
-        data: { name: dto.barbershopName, slug: dto.slug, status: 'TRIAL' },
-      });
-      // A partir daqui, insere em tabelas com RLS -> precisa do contexto.
-      await tx.$executeRaw`SELECT set_config('app.current_tenant', ${tenant.id}, true)`;
-      await tx.unit.create({
-        data: { tenantId: tenant.id, name: 'Matriz' },
-      });
-      const user = await tx.user.create({
-        data: {
-          tenantId: tenant.id,
-          name: dto.adminName,
-          email: dto.email,
-          passwordHash,
-          role: 'ADMIN',
-          isActive: true,
-        },
-      });
-      const tokens = await this.issueTokens(tx, user.id, tenant.id, user.role);
-      return { tenantId: tenant.id, ...tokens };
+    // Registro público: nova conta-dono (ownerAccountId novo).
+    const result = await this.provisionCompany({
+      barbershopName: dto.barbershopName,
+      slug: dto.slug,
+      adminName: dto.adminName,
+      email: dto.email,
+      passwordHash: await argon2.hash(dto.password),
+      ownerAccountId: randomUUID(),
     });
 
     return result;
@@ -228,6 +208,177 @@ export class AuthService {
         },
       }),
     );
+  }
+
+  // ---- Multiempresa (conta-dono) -----------------------------------------
+
+  /**
+   * Cria uma barbearia (tenant) + unidade Matriz + usuário admin, sob um
+   * `ownerAccountId`. Usado pelo registro público (owner novo) e pela criação
+   * de empresa por um dono já autenticado (reusa o owner dele).
+   */
+  private async provisionCompany(input: {
+    barbershopName: string;
+    slug: string;
+    adminName: string;
+    email: string;
+    passwordHash: string;
+    ownerAccountId: string;
+  }): Promise<TokenPair & { tenantId: string }> {
+    const existing = await this.prisma.tenant.findUnique({
+      where: { slug: input.slug },
+    });
+    if (existing) throw new ConflictException('Slug de barbearia já está em uso');
+
+    return this.prisma.$transaction(async (tx) => {
+      const tenant = await tx.tenant.create({
+        data: { name: input.barbershopName, slug: input.slug, status: 'TRIAL' },
+      });
+      await tx.$executeRaw`SELECT set_config('app.current_tenant', ${tenant.id}, true)`;
+      await tx.unit.create({ data: { tenantId: tenant.id, name: 'Matriz' } });
+      const user = await tx.user.create({
+        data: {
+          tenantId: tenant.id,
+          name: input.adminName,
+          email: input.email,
+          passwordHash: input.passwordHash,
+          role: 'ADMIN',
+          isActive: true,
+          ownerAccountId: input.ownerAccountId,
+        },
+      });
+      const tokens = await this.issueTokens(tx, user.id, tenant.id, user.role);
+      return { tenantId: tenant.id, ...tokens };
+    });
+  }
+
+  /**
+   * Empresas às quais a conta-dono do usuário tem acesso (para alternar).
+   * Cruza tenants pela conexão de sistema (é uma leitura cross-tenant legítima),
+   * agrupando por `ownerAccountId` — nunca por e-mail.
+   */
+  async listCompanies(user: AuthUser) {
+    const me = await this.system.user.findUnique({
+      where: { id: user.userId },
+      select: { ownerAccountId: true },
+    });
+    if (!me?.ownerAccountId) {
+      // Usuário sem conta-dono: só a empresa atual.
+      const t = await this.system.tenant.findUnique({
+        where: { id: user.tenantId },
+        select: { id: true, name: true, slug: true, status: true },
+      });
+      return t ? [{ ...t, role: user.role, current: true }] : [];
+    }
+    const users = await this.system.user.findMany({
+      where: {
+        ownerAccountId: me.ownerAccountId,
+        isActive: true,
+        deletedAt: null,
+        tenant: { deletedAt: null },
+      },
+      select: {
+        role: true,
+        tenant: { select: { id: true, name: true, slug: true, status: true } },
+      },
+      orderBy: { tenant: { name: 'asc' } },
+    });
+    return users.map((u) => ({
+      id: u.tenant.id,
+      name: u.tenant.name,
+      slug: u.tenant.slug,
+      status: u.tenant.status,
+      role: u.role,
+      current: u.tenant.id === user.tenantId,
+    }));
+  }
+
+  /**
+   * Cria uma nova empresa vinculada à MESMA conta-dono do usuário autenticado
+   * (é o que dá acesso multiempresa de forma segura). NÃO troca a sessão atual.
+   */
+  async createCompany(
+    user: AuthUser,
+    dto: { barbershopName: string; slug: string },
+  ) {
+    const me = await this.system.user.findUnique({
+      where: { id: user.userId },
+      select: { name: true, email: true, passwordHash: true, ownerAccountId: true },
+    });
+    if (!me) throw new UnauthorizedException('Usuário inválido');
+    const ownerAccountId = me.ownerAccountId ?? user.userId;
+
+    const created = await this.provisionCompany({
+      barbershopName: dto.barbershopName,
+      slug: dto.slug,
+      adminName: me.name,
+      email: me.email,
+      passwordHash: me.passwordHash, // mesma credencial da conta-dono
+      ownerAccountId,
+    });
+
+    // Garante que o usuário atual também fique marcado com o ownerAccountId.
+    if (!me.ownerAccountId) {
+      await this.system.user.update({
+        where: { id: user.userId },
+        data: { ownerAccountId },
+      });
+    }
+    return { tenantId: created.tenantId };
+  }
+
+  /**
+   * Alterna a empresa ativa: emite um novo par de tokens para o usuário da
+   * conta-dono na empresa escolhida. Só permite empresas do mesmo
+   * `ownerAccountId` (verificado) — impede pular para tenant de terceiros.
+   */
+  async switchCompany(
+    user: AuthUser,
+    tenantId: string,
+  ): Promise<TokenPair & { tenantId: string }> {
+    const me = await this.system.user.findUnique({
+      where: { id: user.userId },
+      select: { ownerAccountId: true },
+    });
+    if (!me?.ownerAccountId) {
+      throw new UnauthorizedException('Conta sem acesso multiempresa');
+    }
+    const target = await this.system.user.findFirst({
+      where: {
+        tenantId,
+        ownerAccountId: me.ownerAccountId,
+        isActive: true,
+        deletedAt: null,
+        tenant: { deletedAt: null },
+      },
+      select: { id: true, role: true, tenantId: true },
+    });
+    if (!target) {
+      throw new UnauthorizedException('Você não tem acesso a essa empresa');
+    }
+    return this.prisma.withTenant(tenantId, async (tx) => {
+      const tokens = await this.issueTokens(tx, target.id, tenantId, target.role);
+      return { tenantId, ...tokens };
+    });
+  }
+
+  /** Renomeia uma empresa da conta-dono (Controle Geral). */
+  async renameCompany(user: AuthUser, tenantId: string, name: string) {
+    const me = await this.system.user.findUnique({
+      where: { id: user.userId },
+      select: { ownerAccountId: true },
+    });
+    const ok = await this.system.user.findFirst({
+      where: {
+        tenantId,
+        ownerAccountId: me?.ownerAccountId ?? '__none__',
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+    if (!ok) throw new UnauthorizedException('Sem acesso a essa empresa');
+    await this.system.tenant.update({ where: { id: tenantId }, data: { name } });
+    return { id: tenantId, name };
   }
 
   // ---- 2FA (TOTP) --------------------------------------------------------

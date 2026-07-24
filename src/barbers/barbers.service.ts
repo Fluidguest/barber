@@ -6,6 +6,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { encryptField, decryptField } from '../common/crypto.util';
+import { isValidCpf } from '../common/cpf.validator';
 import { CreateBarberDto } from './dto/create-barber.dto';
 import { UpdateBarberDto } from './dto/update-barber.dto';
 import { SetScheduleDto } from './dto/set-schedule.dto';
@@ -19,6 +20,8 @@ const SELECT = {
   document: true,
   birthDate: true,
   address: true,
+  pixKey: true,
+  bankData: true,
   unitId: true,
   specialties: { select: { serviceId: true } },
 } satisfies Prisma.BarberSelect;
@@ -46,7 +49,9 @@ export class BarbersService {
           email: dto.email,
           document: dto.document ? encryptField(dto.document) : undefined,
           birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
-          address: dto.address as Prisma.InputJsonValue | undefined,
+          address: dto.address as unknown as Prisma.InputJsonValue,
+          pixKey: dto.pixKey,
+          bankData: dto.bankData as Prisma.InputJsonValue | undefined,
           specialties: {
             create: (dto.specialtyIds ?? []).map((serviceId) => ({
               tenantId,
@@ -83,6 +88,10 @@ export class BarbersService {
   }
 
   async update(tenantId: string, id: string, dto: UpdateBarberDto) {
+    // CPF, se informado na edição, precisa ser válido.
+    if (dto.document && !isValidCpf(dto.document)) {
+      throw new BadRequestException('CPF inválido');
+    }
     const barber = await this.prisma.withTenant(tenantId, async (tx) => {
       const exists = await tx.barber.findFirst({
         where: { id, deletedAt: null },
@@ -112,12 +121,14 @@ export class BarbersService {
           phone: dto.phone,
           whatsapp: dto.whatsapp,
           email: dto.email,
+          pixKey: dto.pixKey,
+          bankData: dto.bankData as Prisma.InputJsonValue | undefined,
           // Só regrava o CPF se vier no payload (evita apagar sem querer).
           ...(dto.document !== undefined
             ? { document: dto.document ? encryptField(dto.document) : null }
             : {}),
           birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
-          address: dto.address as Prisma.InputJsonValue | undefined,
+          address: dto.address as unknown as Prisma.InputJsonValue | undefined,
         },
         select: SELECT,
       });

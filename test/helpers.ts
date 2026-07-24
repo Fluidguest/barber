@@ -38,3 +38,40 @@ export async function registerTenant(
 }
 
 export const authHeader = (token: string) => ({ Authorization: `Bearer ${token}` });
+
+/**
+ * Payload de barbeiro VÁLIDO (o cadastro exige CPF válido, endereço completo e
+ * nascimento). Use `barberPayload('Nome', { ...overrides })` nos testes.
+ * CPF 111.444.777-35 é válido pelos dígitos verificadores.
+ */
+export function barberPayload(name = 'Barbeiro Teste', overrides: Record<string, unknown> = {}) {
+  return {
+    name,
+    document: '111.444.777-35',
+    birthDate: '1990-01-15',
+    address: {
+      zip: '01001-000',
+      street: 'Rua Teste',
+      number: '100',
+      neighborhood: 'Centro',
+      city: 'São Paulo',
+      state: 'SP',
+    },
+    ...overrides,
+  };
+}
+
+/** Cria um barbeiro válido e devolve o body. */
+export async function createBarber(
+  app: INestApplication,
+  token: string,
+  name = 'Barbeiro Teste',
+  overrides: Record<string, unknown> = {},
+) {
+  const r = await request(app.getHttpServer())
+    .post('/api/barbers')
+    .set(authHeader(token))
+    .send(barberPayload(name, overrides))
+    .expect(201);
+  return r.body;
+}

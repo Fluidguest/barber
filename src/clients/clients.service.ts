@@ -17,6 +17,7 @@ const DETAIL = {
   origin: true,
   notes: true,
   address: true,
+  discountBalanceCents: true,
   createdAt: true,
 } satisfies Prisma.ClientSelect;
 
@@ -26,6 +27,7 @@ const LIST = {
   phone: true,
   whatsapp: true,
   email: true,
+  discountBalanceCents: true,
   createdAt: true,
 } satisfies Prisma.ClientSelect;
 
@@ -99,6 +101,36 @@ export class ClientsService {
       await tx.client.update({ where: { id }, data: { deletedAt: new Date() } });
     });
     return { deleted: true };
+  }
+
+  /**
+   * Ajuste manual do saldo de desconto do cliente.
+   * `setCents` define um valor absoluto; `addCents` soma/subtrai do atual.
+   * O saldo nunca fica negativo.
+   */
+  async adjustDiscountBalance(
+    tenantId: string,
+    id: string,
+    dto: { setCents?: number; addCents?: number },
+  ) {
+    return this.prisma.withTenant(tenantId, async (tx) => {
+      const client = await tx.client.findFirst({
+        where: { id, deletedAt: null },
+        select: { discountBalanceCents: true },
+      });
+      if (!client) throw new NotFoundException('Cliente não encontrado');
+
+      const next =
+        dto.setCents !== undefined
+          ? dto.setCents
+          : client.discountBalanceCents + (dto.addCents ?? 0);
+
+      return tx.client.update({
+        where: { id },
+        data: { discountBalanceCents: Math.max(0, Math.round(next)) },
+        select: { id: true, discountBalanceCents: true },
+      });
+    });
   }
 }
 

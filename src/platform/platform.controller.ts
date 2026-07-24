@@ -70,4 +70,11 @@ export class PlatformController {
   reactivate(@Param('id') id: string, @Req() req: Request) {
     return this.platform.reactivate(id, who(req));
   }
+
+  /** Entra na empresa (impersonation) — devolve um token de acesso à barbearia. */
+  @UseGuards(PlatformAuthGuard)
+  @Post('tenants/:id/enter')
+  enter(@Param('id') id: string, @Req() req: Request) {
+    return this.platform.enterTenant(id, who(req));
+  }
 }

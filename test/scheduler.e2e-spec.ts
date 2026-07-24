@@ -39,7 +39,7 @@ describe('Agendador da plataforma (e2e)', () => {
       .send({ name: 'Corte', durationMin: 30, priceCents: 5000 }).expect(201);
     const barber = await request(app.getHttpServer())
       .post(mk('/barbers')).set(authHeader(token))
-      .send({ name: 'João' }).expect(201);
+      .send({ name: 'João', document: "111.444.777-35", birthDate: "1990-01-15", address: { zip: "01001-000", street: "Rua", number: "1", neighborhood: "Centro", city: "Sao Paulo", state: "SP" } }).expect(201);
     const client = await request(app.getHttpServer())
       .post(mk('/clients')).set(authHeader(token))
       .send({ name: 'Cliente', phone: '11999990000' }).expect(201);
