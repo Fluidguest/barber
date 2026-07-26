@@ -1,8 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  DollarSign,
+  Receipt,
+  ShoppingBag,
+  Percent,
+  CalendarCheck,
+  CheckCircle2,
+  Scissors,
+  UserPlus,
+} from "lucide-react";
 import { api } from "@/lib/api";
 import { brl } from "@/lib/format";
+import { StatCard } from "@/components/ui/StatCard";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Card } from "@/components/ui/card";
 
 interface Dashboard {
   revenueCents: number;
@@ -25,66 +38,41 @@ export default function DashboardPage() {
       .catch((e) => setError(e.message));
   }, []);
 
-  if (error) return <ErrorBox message={error} />;
-  if (!data) return <p className="text-muted">Carregando...</p>;
+  if (error)
+    return (
+      <div className="rounded-lg border border-danger/40 bg-danger/10 px-4 py-3 text-danger">
+        {error}
+      </div>
+    );
+  if (!data) return <p className="text-muted-foreground">Carregando...</p>;
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-semibold">Dashboard</h1>
-      <p className="mb-6 text-sm text-muted">Indicadores de hoje</p>
+      <PageHeader title="Dashboard" subtitle="Indicadores de hoje" />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card title="Faturamento" value={brl(data.revenueCents)} accent />
-        <Card title="Ticket médio" value={brl(data.averageTicketCents)} />
-        <Card title="Comandas pagas" value={String(data.paidSales)} />
-        <Card title="Comissões" value={brl(data.commissionsGeneratedCents)} />
-        <Card title="Atendimentos" value={String(data.appointments.total)} />
-        <Card title="Concluídos" value={String(data.appointments.done)} />
-        <Card title="Barbeiros ativos" value={String(data.activeBarbers)} />
-        <Card title="Clientes novos" value={String(data.newClients)} />
+        <StatCard title="Faturamento" value={brl(data.revenueCents)} icon={DollarSign} accent />
+        <StatCard title="Ticket médio" value={brl(data.averageTicketCents)} icon={Receipt} />
+        <StatCard title="Comandas pagas" value={String(data.paidSales)} icon={ShoppingBag} />
+        <StatCard title="Comissões" value={brl(data.commissionsGeneratedCents)} icon={Percent} />
+        <StatCard title="Atendimentos" value={String(data.appointments.total)} icon={CalendarCheck} />
+        <StatCard title="Concluídos" value={String(data.appointments.done)} icon={CheckCircle2} />
+        <StatCard title="Barbeiros ativos" value={String(data.activeBarbers)} icon={Scissors} />
+        <StatCard title="Clientes novos" value={String(data.newClients)} icon={UserPlus} />
       </div>
 
-      <div className="mt-6 rounded-xl border border-border bg-surface p-5">
-        <div className="text-sm text-muted">Caixa</div>
+      <Card className="mt-6 p-5">
+        <div className="text-sm text-muted-foreground">Caixa</div>
         <div className="mt-1 text-lg">
           {data.cashOpen ? (
             <span className="text-success">
               Aberto · fundo {brl(data.cashOpen.openingCents)}
             </span>
           ) : (
-            <span className="text-muted">Fechado</span>
+            <span className="text-muted-foreground">Fechado</span>
           )}
         </div>
-      </div>
-    </div>
-  );
-}
-
-function Card({
-  title,
-  value,
-  accent,
-}: {
-  title: string;
-  value: string;
-  accent?: boolean;
-}) {
-  return (
-    <div className="rounded-xl border border-border bg-surface p-5">
-      <div className="text-sm text-muted">{title}</div>
-      <div
-        className={`mt-2 text-2xl font-semibold ${accent ? "text-primary" : ""}`}
-      >
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function ErrorBox({ message }: { message: string }) {
-  return (
-    <div className="rounded-lg border border-danger/40 bg-danger/10 px-4 py-3 text-danger">
-      {message}
+      </Card>
     </div>
   );
 }

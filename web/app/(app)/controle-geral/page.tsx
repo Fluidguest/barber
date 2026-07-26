@@ -104,7 +104,7 @@ export default function ControleGeralPage() {
   return (
     <div>
       <h1 className="mb-1 text-2xl font-semibold">Controle Geral</h1>
-      <p className="mb-6 text-sm text-muted">
+      <p className="mb-6 text-sm text-muted-foreground">
         Empresas às quais você tem acesso. Os dados de cada uma são isolados.
       </p>
 
@@ -121,7 +121,7 @@ export default function ControleGeralPage() {
       >
         <div className="text-sm font-medium">Nova empresa</div>
         <label className="flex-1">
-          <span className="mb-1 block text-xs text-muted">Nome</span>
+          <span className="mb-1 block text-xs text-muted-foreground">Nome</span>
           <input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
@@ -130,7 +130,7 @@ export default function ControleGeralPage() {
           />
         </label>
         <label className="w-48">
-          <span className="mb-1 block text-xs text-muted">Slug (link público)</span>
+          <span className="mb-1 block text-xs text-muted-foreground">Slug (link público)</span>
           <input
             value={newSlug}
             onChange={(e) => setNewSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
@@ -173,7 +173,7 @@ export default function ControleGeralPage() {
                   </button>
                   <button
                     onClick={() => setRenameId(null)}
-                    className="text-xs text-muted hover:text-foreground"
+                    className="text-xs text-muted-foreground hover:text-foreground"
                   >
                     cancelar
                   </button>
@@ -188,7 +188,7 @@ export default function ControleGeralPage() {
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-muted">
+                  <div className="text-xs text-muted-foreground">
                     /{c.slug} · {STATUS_LABEL[c.status] ?? c.status} · seu papel: {c.role}
                   </div>
                 </>
@@ -207,7 +207,7 @@ export default function ControleGeralPage() {
                 )}
                 <button
                   onClick={() => { setRenameId(c.id); setRenameValue(c.name); }}
-                  className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted hover:border-primary hover:text-foreground"
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:border-primary hover:text-foreground"
                 >
                   renomear
                 </button>
@@ -216,7 +216,7 @@ export default function ControleGeralPage() {
           </div>
         ))}
         {companies.length === 0 && (
-          <div className="rounded-xl border border-border bg-surface p-8 text-center text-muted">
+          <div className="rounded-xl border border-border bg-surface p-8 text-center text-muted-foreground">
             Nenhuma empresa
           </div>
         )}

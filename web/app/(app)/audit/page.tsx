@@ -70,7 +70,7 @@ export default function AuditPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Auditoria</h1>
-          <p className="text-sm text-muted">{total} ações registradas</p>
+          <p className="text-sm text-muted-foreground">{total} ações registradas</p>
         </div>
         <div className="flex gap-2">
           <select
@@ -87,7 +87,7 @@ export default function AuditPage() {
           </select>
           <button
             onClick={() => load()}
-            className="rounded-lg border border-border px-4 py-2 text-sm text-muted hover:text-foreground"
+            className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
           >
             Atualizar
           </button>
@@ -102,7 +102,7 @@ export default function AuditPage() {
 
       <div className="overflow-hidden rounded-xl border border-border">
         <table className="w-full text-sm">
-          <thead className="bg-surface text-left text-muted">
+          <thead className="bg-surface text-left text-muted-foreground">
             <tr>
               <th className="px-4 py-3 font-medium">Data</th>
               <th className="px-4 py-3 font-medium">Ação</th>
@@ -114,20 +114,20 @@ export default function AuditPage() {
           <tbody>
             {logs.map((l) => (
               <tr key={l.id} className="border-t border-border">
-                <td className="px-4 py-3 text-muted">{dt(l.createdAt)}</td>
+                <td className="px-4 py-3 text-muted-foreground">{dt(l.createdAt)}</td>
                 <td className={`px-4 py-3 ${ACTION_COLOR[l.action] ?? ""}`}>
                   {ACTION_LABEL[l.action] ?? l.action}
                 </td>
                 <td className="px-4 py-3">{l.entity}</td>
-                <td className="px-4 py-3 font-mono text-xs text-muted">
+                <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                   {l.entityId ? l.entityId.slice(0, 12) + "…" : "—"}
                 </td>
-                <td className="px-4 py-3 text-muted">{l.ip ?? "—"}</td>
+                <td className="px-4 py-3 text-muted-foreground">{l.ip ?? "—"}</td>
               </tr>
             ))}
             {logs.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted">
+                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
                   Nenhum registro
                 </td>
               </tr>
@@ -156,17 +156,17 @@ function Pager({
       <button
         onClick={() => onChange(page - 1)}
         disabled={page <= 1}
-        className="rounded-lg border border-border px-3 py-1.5 text-muted hover:text-foreground disabled:opacity-40"
+        className="rounded-lg border border-border px-3 py-1.5 text-muted-foreground hover:text-foreground disabled:opacity-40"
       >
         Anterior
       </button>
-      <span className="text-muted">
+      <span className="text-muted-foreground">
         Página {page} de {totalPages}
       </span>
       <button
         onClick={() => onChange(page + 1)}
         disabled={page >= totalPages}
-        className="rounded-lg border border-border px-3 py-1.5 text-muted hover:text-foreground disabled:opacity-40"
+        className="rounded-lg border border-border px-3 py-1.5 text-muted-foreground hover:text-foreground disabled:opacity-40"
       >
         Próxima
       </button>

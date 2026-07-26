@@ -128,7 +128,7 @@ export default function BookingPage() {
     return (
       <Centered>
         <h1 className="text-xl font-semibold">Barbearia não encontrada</h1>
-        <p className="mt-2 text-sm text-muted">Confira o link e tente de novo.</p>
+        <p className="mt-2 text-sm text-muted-foreground">Confira o link e tente de novo.</p>
       </Centered>
     );
   }
@@ -136,7 +136,7 @@ export default function BookingPage() {
   if (!shop) {
     return (
       <Centered>
-        <p className="text-muted">Carregando...</p>
+        <p className="text-muted-foreground">Carregando...</p>
       </Centered>
     );
   }
@@ -147,14 +147,14 @@ export default function BookingPage() {
       <Centered>
         <div className="text-3xl">✅</div>
         <h1 className="mt-3 text-xl font-semibold">Agendamento confirmado!</h1>
-        <p className="mt-2 text-muted">
+        <p className="mt-2 text-muted-foreground">
           {new Date(done.startAt).toLocaleString("pt-BR", {
             timeZone: tz,
             dateStyle: "full",
             timeStyle: "short",
           })}
         </p>
-        <p className="mt-4 text-sm text-muted">
+        <p className="mt-4 text-sm text-muted-foreground">
           Você receberá um lembrete no WhatsApp. Até breve!
         </p>
       </Centered>
@@ -167,7 +167,7 @@ export default function BookingPage() {
     <div className="mx-auto max-w-lg p-4 sm:p-6">
       <header className="mb-6">
         <h1 className="text-2xl font-semibold">{shop.name}</h1>
-        <p className="text-sm text-muted">Agende seu horário</p>
+        <p className="text-sm text-muted-foreground">Agende seu horário</p>
       </header>
 
       {/* 1. Serviço */}
@@ -185,13 +185,13 @@ export default function BookingPage() {
             >
               <span>
                 <span className="block font-medium">{s.name}</span>
-                <span className="text-xs text-muted">{s.durationMin} min</span>
+                <span className="text-xs text-muted-foreground">{s.durationMin} min</span>
               </span>
               <span className="font-medium">{brl(s.priceCents)}</span>
             </button>
           ))}
           {services.length === 0 && (
-            <p className="text-sm text-muted">Nenhum serviço disponível.</p>
+            <p className="text-sm text-muted-foreground">Nenhum serviço disponível.</p>
           )}
         </div>
       </Step>
@@ -202,7 +202,7 @@ export default function BookingPage() {
           <Step n={2} title="Profissional e dia">
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
-                <span className="mb-1.5 block text-sm text-muted">Profissional</span>
+                <span className="mb-1.5 block text-sm text-muted-foreground">Profissional</span>
                 <select
                   value={barberId}
                   onChange={(e) => setBarberId(e.target.value)}
@@ -217,7 +217,7 @@ export default function BookingPage() {
                 </select>
               </label>
               <label className="block">
-                <span className="mb-1.5 block text-sm text-muted">Data</span>
+                <span className="mb-1.5 block text-sm text-muted-foreground">Data</span>
                 <input
                   type="date"
                   value={date}
@@ -232,9 +232,9 @@ export default function BookingPage() {
           {/* 3. Horário */}
           <Step n={3} title="Escolha o horário">
             {loadingSlots ? (
-              <p className="text-sm text-muted">Buscando horários...</p>
+              <p className="text-sm text-muted-foreground">Buscando horários...</p>
             ) : slots.length === 0 ? (
-              <p className="text-sm text-muted">
+              <p className="text-sm text-muted-foreground">
                 Nenhum horário livre nesse dia. Tente outra data.
               </p>
             ) : (
@@ -256,7 +256,7 @@ export default function BookingPage() {
                       minute: "2-digit",
                     })}
                     {!barberId && (
-                      <span className="ml-1 text-xs text-muted">
+                      <span className="ml-1 text-xs text-muted-foreground">
                         {s.barberName.split(" ")[0]}
                       </span>
                     )}
@@ -271,7 +271,7 @@ export default function BookingPage() {
             <Step n={4} title="Seus dados">
               <form onSubmit={confirm}>
                 <label className="mb-4 block">
-                  <span className="mb-1.5 block text-sm text-muted">Nome</span>
+                  <span className="mb-1.5 block text-sm text-muted-foreground">Nome</span>
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -281,7 +281,7 @@ export default function BookingPage() {
                   />
                 </label>
                 <label className="mb-4 block">
-                  <span className="mb-1.5 block text-sm text-muted">
+                  <span className="mb-1.5 block text-sm text-muted-foreground">
                     WhatsApp (com DDD)
                   </span>
                   <input
@@ -301,7 +301,7 @@ export default function BookingPage() {
 
                 <div className="mb-4 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm">
                   <div className="font-medium">{service.name}</div>
-                  <div className="text-muted">
+                  <div className="text-muted-foreground">
                     {new Date(slot.startAt).toLocaleString("pt-BR", {
                       timeZone: tz,
                       dateStyle: "long",

@@ -110,7 +110,7 @@ export default function UsersPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Usuários</h1>
-          <p className="text-sm text-muted">{users.length} cadastrados</p>
+          <p className="text-sm text-muted-foreground">{users.length} cadastrados</p>
         </div>
         <button
           onClick={() => setOpen((v) => !v)}
@@ -132,19 +132,19 @@ export default function UsersPage() {
           className="mb-6 grid grid-cols-1 gap-3 rounded-xl border border-border bg-surface p-4 sm:grid-cols-2 lg:grid-cols-4"
         >
           <label className="block">
-            <span className="mb-1 block text-xs text-muted">Nome</span>
+            <span className="mb-1 block text-xs text-muted-foreground">Nome</span>
             <input value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm outline-none focus:border-primary" />
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs text-muted">E-mail</span>
+            <span className="mb-1 block text-xs text-muted-foreground">E-mail</span>
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm outline-none focus:border-primary" />
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs text-muted">Senha</span>
+            <span className="mb-1 block text-xs text-muted-foreground">Senha</span>
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm outline-none focus:border-primary" />
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs text-muted">Perfil</span>
+            <span className="mb-1 block text-xs text-muted-foreground">Perfil</span>
             <select value={role} onChange={(e) => setRole(e.target.value)} className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm outline-none focus:border-primary">
               {ROLES.map(([v, l]) => (
                 <option key={v} value={v}>{l}</option>
@@ -161,7 +161,7 @@ export default function UsersPage() {
 
       <div className="overflow-hidden rounded-xl border border-border">
         <table className="w-full text-sm">
-          <thead className="bg-surface text-left text-muted">
+          <thead className="bg-surface text-left text-muted-foreground">
             <tr>
               <th className="px-4 py-3 font-medium">Nome</th>
               <th className="px-4 py-3 font-medium">E-mail</th>
@@ -177,7 +177,7 @@ export default function UsersPage() {
                   {u.name}
                   {u.totpEnabled && <span className="ml-2 text-xs text-success">2FA</span>}
                 </td>
-                <td className="px-4 py-3 text-muted">{u.email}</td>
+                <td className="px-4 py-3 text-muted-foreground">{u.email}</td>
                 <td className="px-4 py-3">
                   <select
                     value={u.role}
@@ -193,17 +193,17 @@ export default function UsersPage() {
                   {u.isActive ? (
                     <span className="text-success">Ativo</span>
                   ) : (
-                    <span className="text-muted">Inativo</span>
+                    <span className="text-muted-foreground">Inativo</span>
                   )}
                 </td>
                 <td className="px-4 py-3 text-right whitespace-nowrap">
-                  <button onClick={() => patch(u.id, { isActive: !u.isActive })} className="mr-3 text-xs text-muted hover:text-foreground">
+                  <button onClick={() => patch(u.id, { isActive: !u.isActive })} className="mr-3 text-xs text-muted-foreground hover:text-foreground">
                     {u.isActive ? "desativar" : "ativar"}
                   </button>
-                  <button onClick={() => resetPassword(u.id)} className="mr-3 text-xs text-muted hover:text-foreground">
+                  <button onClick={() => resetPassword(u.id)} className="mr-3 text-xs text-muted-foreground hover:text-foreground">
                     senha
                   </button>
-                  <button onClick={() => remove(u.id)} className="text-xs text-muted hover:text-danger">
+                  <button onClick={() => remove(u.id)} className="text-xs text-muted-foreground hover:text-danger">
                     remover
                   </button>
                 </td>
@@ -211,7 +211,7 @@ export default function UsersPage() {
             ))}
             {users.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted">Nenhum usuário</td>
+                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">Nenhum usuário</td>
               </tr>
             )}
           </tbody>

@@ -173,7 +173,7 @@ export default function AgendaPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Agenda de hoje</h1>
-          <p className="text-sm text-muted">{appts.length} atendimentos</p>
+          <p className="text-sm text-muted-foreground">{appts.length} atendimentos</p>
         </div>
         <button
           onClick={() => setShowForm((v) => !v)}
@@ -192,7 +192,7 @@ export default function AgendaPage() {
           <Select label="Barbeiro" value={barberId} onChange={setBarberId} options={barbers} />
           <Select label="Serviço" value={serviceId} onChange={setServiceId} options={services} />
           <label className="block">
-            <span className="mb-1 block text-xs text-muted">Data e hora</span>
+            <span className="mb-1 block text-xs text-muted-foreground">Data e hora</span>
             <input
               type="datetime-local"
               value={when}
@@ -231,12 +231,12 @@ export default function AgendaPage() {
         {(fBarber || fClient || fService) && (
           <button
             onClick={() => { setFBarber(""); setFClient(""); setFService(""); }}
-            className="rounded-lg border border-border px-3 py-2 text-sm text-muted hover:border-primary"
+            className="rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:border-primary"
           >
             Limpar
           </button>
         )}
-        <span className="ml-auto self-center text-sm text-muted">
+        <span className="ml-auto self-center text-sm text-muted-foreground">
           {filtered.length} de {appts.length}
         </span>
       </div>
@@ -254,11 +254,11 @@ export default function AgendaPage() {
                   <div className="font-medium">
                     {nameOf(clients, a.clientId) ?? "Cliente"}
                   </div>
-                  <div className="text-sm text-muted">
+                  <div className="text-sm text-muted-foreground">
                     {nameOf(barbers, a.barberId) ?? "Barbeiro"}
                   </div>
                 </div>
-                <div className="text-sm text-muted">{brl(a.priceCents)}</div>
+                <div className="text-sm text-muted-foreground">{brl(a.priceCents)}</div>
                 <div className={`w-24 text-right text-sm ${STATUS_COLOR[a.status] ?? ""}`}>
                   {STATUS_LABEL[a.status] ?? a.status}
                 </div>
@@ -301,7 +301,7 @@ export default function AgendaPage() {
                   </button>
                   <button
                     onClick={() => setReschedId(null)}
-                    className="text-sm text-muted hover:text-foreground"
+                    className="text-sm text-muted-foreground hover:text-foreground"
                   >
                     cancelar
                   </button>
@@ -311,7 +311,7 @@ export default function AgendaPage() {
           );
         })}
         {filtered.length === 0 && (
-          <div className="rounded-xl border border-border bg-surface p-8 text-center text-muted">
+          <div className="rounded-xl border border-border bg-surface p-8 text-center text-muted-foreground">
             {appts.length === 0 ? "Nenhum atendimento hoje" : "Nenhum atendimento com esses filtros"}
           </div>
         )}
@@ -331,7 +331,7 @@ function Filtro({
 }) {
   return (
     <label>
-      <span className="mb-1 block text-xs text-muted">{label}</span>
+      <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -359,7 +359,7 @@ function Action({
     <button
       onClick={onClick}
       className={`rounded-lg border border-border px-3 py-1.5 text-xs transition hover:border-primary ${
-        danger ? "text-muted hover:border-danger hover:text-danger" : "text-muted hover:text-foreground"
+        danger ? "text-muted-foreground hover:border-danger hover:text-danger" : "text-muted-foreground hover:text-foreground"
       }`}
     >
       {children}
@@ -380,7 +380,7 @@ function Select({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs text-muted">{label}</span>
+      <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}

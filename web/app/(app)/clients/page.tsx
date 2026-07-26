@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
+import { brl } from "@/lib/format";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Button } from "@/components/ui/button";
+import { DataTable } from "@/components/ui/DataTable";
 
 interface ClientListItem {
   id: string;
@@ -78,7 +82,11 @@ export default function ClientsPage() {
     }
   }
   useEffect(() => {
-    load("");
+    // Busca inicial pela query da URL (a busca da topbar manda para /clients?search=).
+    const q = new URLSearchParams(window.location.search).get("search") ?? "";
+    setSearch(q);
+    load(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function startNew() {
@@ -203,18 +211,11 @@ export default function ClientsPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Clientes</h1>
-          <p className="text-sm text-muted">{clients.length} cadastrados</p>
-        </div>
-        <button
-          onClick={startNew}
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-fg hover:opacity-90"
-        >
-          Novo cliente
-        </button>
-      </div>
+      <PageHeader
+        title="Clientes"
+        subtitle={`${clients.length} cadastrados`}
+        actions={<Button onClick={startNew}>Novo cliente</Button>}
+      />
 
       <div className="mb-4 flex gap-2">
         <input
@@ -224,12 +225,9 @@ export default function ClientsPage() {
           placeholder="Buscar por nome, telefone ou e-mail..."
           className="flex-1 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm outline-none focus:border-primary"
         />
-        <button
-          onClick={() => load()}
-          className="rounded-lg border border-border px-4 py-2 text-sm text-muted hover:text-foreground"
-        >
+        <Button variant="outline" onClick={() => load()}>
           Buscar
-        </button>
+        </Button>
       </div>
 
       {error && (
@@ -272,7 +270,7 @@ export default function ClientsPage() {
           </Group>
 
           <label className="mb-4 block">
-            <span className="mb-1 block text-xs text-muted">Observações</span>
+            <span className="mb-1 block text-xs text-muted-foreground">Observações</span>
             <textarea
               value={form.notes}
               onChange={(e) => set("notes", e.target.value)}
@@ -290,7 +288,7 @@ export default function ClientsPage() {
                   {(balanceCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                 </span>
               </div>
-              <p className="mb-2 text-xs text-muted">
+              <p className="mb-2 text-xs text-muted-foreground">
                 Aplicado automaticamente no próximo atendimento (comanda). Ajuste
                 manual define o valor total do crédito.
               </p>
@@ -312,7 +310,7 @@ export default function ClientsPage() {
                   <button
                     type="button"
                     onClick={() => { setBalanceInput("0"); }}
-                    className="rounded-lg border border-border px-3 py-2 text-sm text-muted hover:border-danger hover:text-danger"
+                    className="rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:border-danger hover:text-danger"
                   >
                     Zerar
                   </button>
@@ -332,7 +330,7 @@ export default function ClientsPage() {
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="rounded-lg border border-border px-4 py-2 text-sm text-muted hover:text-foreground"
+              className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
             >
               Cancelar
             </button>
@@ -340,56 +338,33 @@ export default function ClientsPage() {
         </form>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-border">
-        <table className="w-full text-sm">
-          <thead className="bg-surface text-left text-muted">
-            <tr>
-              <th className="px-4 py-3 font-medium">Nome</th>
-              <th className="px-4 py-3 font-medium">Contato</th>
-              <th className="px-4 py-3 font-medium">Saldo desconto</th>
-              <th className="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {clients.map((c) => (
-              <tr key={c.id} className="border-t border-border">
-                <td className="px-4 py-3">{c.name}</td>
-                <td className="px-4 py-3 text-muted">{c.whatsapp ?? c.phone ?? "—"}</td>
-                <td className="px-4 py-3">
-                  {c.discountBalanceCents > 0 ? (
-                    <span className="text-success">
-                      {(c.discountBalanceCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                    </span>
-                  ) : (
-                    <span className="text-muted">—</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => startEdit(c.id)}
-                    className="mr-3 text-xs text-muted hover:text-foreground"
-                  >
-                    editar
-                  </button>
-                  <button
-                    onClick={() => remove(c.id)}
-                    className="text-xs text-muted hover:text-danger"
-                  >
-                    remover
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {clients.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-muted">
-                  Nenhum cliente
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        head={["Nome", "Contato", "Saldo desconto", ""]}
+        empty="Nenhum cliente"
+        rows={clients.map((c) => [
+          c.name,
+          <span className="text-muted-foreground">{c.whatsapp ?? c.phone ?? "—"}</span>,
+          c.discountBalanceCents > 0 ? (
+            <span className="text-success">{brl(c.discountBalanceCents)}</span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+          <div className="whitespace-nowrap text-right">
+            <button
+              onClick={() => startEdit(c.id)}
+              className="mr-3 text-xs text-muted-foreground hover:text-foreground"
+            >
+              editar
+            </button>
+            <button
+              onClick={() => remove(c.id)}
+              className="text-xs text-muted-foreground hover:text-danger"
+            >
+              remover
+            </button>
+          </div>,
+        ])}
+      />
     </div>
   );
 }
@@ -397,7 +372,7 @@ export default function ClientsPage() {
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-4">
-      <div className="mb-2 text-xs uppercase tracking-wide text-muted">{title}</div>
+      <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">{title}</div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {children}
       </div>
@@ -418,7 +393,7 @@ function Input({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs text-muted">{label}</span>
+      <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
       <input
         type={type}
         value={value}
@@ -442,7 +417,7 @@ function Select({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs text-muted">{label}</span>
+      <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}

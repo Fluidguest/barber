@@ -78,7 +78,7 @@ export default function SecurityPage() {
   return (
     <div className="max-w-xl">
       <h1 className="mb-1 text-2xl font-semibold">Segurança</h1>
-      <p className="mb-6 text-sm text-muted">Autenticação de dois fatores (2FA)</p>
+      <p className="mb-6 text-sm text-muted-foreground">Autenticação de dois fatores (2FA)</p>
 
       {error && (
         <div className="mb-4 rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
@@ -94,7 +94,7 @@ export default function SecurityPage() {
       <div className="rounded-xl border border-border bg-surface p-5">
         <div className="mb-4 flex items-center justify-between">
           <span className="font-medium">Verificação em duas etapas</span>
-          <span className={me?.totpEnabled ? "text-success" : "text-muted"}>
+          <span className={me?.totpEnabled ? "text-success" : "text-muted-foreground"}>
             {me?.totpEnabled ? "Ativado" : "Desativado"}
           </span>
         </div>
@@ -112,12 +112,12 @@ export default function SecurityPage() {
 
         {setup && (
           <div className="flex flex-col gap-3">
-            <p className="text-sm text-muted">
+            <p className="text-sm text-muted-foreground">
               Adicione ao seu app autenticador (Google Authenticator, Authy...)
               usando o segredo abaixo, depois confirme com o código gerado.
             </p>
             <div className="rounded-lg border border-border bg-surface-2 p-3">
-              <div className="text-xs text-muted">Segredo</div>
+              <div className="text-xs text-muted-foreground">Segredo</div>
               <div className="break-all font-mono text-sm">{setup.secret}</div>
             </div>
             <div className="flex gap-2">
@@ -150,7 +150,7 @@ export default function SecurityPage() {
             <button
               onClick={disable}
               disabled={busy || !code}
-              className="rounded-lg border border-border px-4 py-2 text-sm text-muted hover:border-danger hover:text-danger disabled:opacity-50"
+              className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:border-danger hover:text-danger disabled:opacity-50"
             >
               Desativar 2FA
             </button>

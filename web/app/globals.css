@@ -1,36 +1,195 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+/* ============================================================
+   Barber SaaS — tema "Gold on Black" + tokens shadcn/ui
+   App é dark-only: os valores da marca ficam direto no :root.
+   Mantém meus aliases (surface, surface-2, primary-fg, success,
+   warning, danger, utilitários gold) e adiciona o vocabulário do
+   shadcn (card, popover, muted, accent, destructive, input, ring…).
+   ============================================================ */
 
 :root {
-  --background: #0b0b0f;
-  --surface: #15151c;
-  --surface-2: #1e1e28;
-  --border: #2a2a37;
-  --foreground: #ececf1;
-  --muted: #9797a8;
-  --primary: #6366f1;
-  --primary-fg: #ffffff;
-  --success: #22c55e;
+  --radius: 0.625rem;
+
+  /* Base */
+  --background: #0a0a0c;
+  --foreground: #f3efe7;
+
+  /* Superfícies */
+  --surface: #141317;
+  --surface-2: #1c1a20;
+  --card: #141317;
+  --card-foreground: #f3efe7;
+  --popover: #17151b;
+  --popover-foreground: #f3efe7;
+
+  /* Marca (dourado) */
+  --primary: #e0b64a;
+  --primary-foreground: #14110a;
+  --primary-fg: #14110a;
+  --primary-soft: #f0d488;
+  --primary-strong: #c9962e;
+
+  /* Secundário / muted / accent (escuros) */
+  --secondary: #1c1a20;
+  --secondary-foreground: #f3efe7;
+  --muted: #1c1a20;
+  --muted-foreground: #9a9488;
+  --accent: #24212a;
+  --accent-foreground: #f3efe7;
+
+  /* Semânticos */
+  --destructive: #f04452;
+  --danger: #f04452;
+  --success: #34d399;
   --warning: #f59e0b;
-  --danger: #ef4444;
+
+  /* Bordas / inputs / anel */
+  --border: #2b2820;
+  --input: #2b2820;
+  --ring: #e0b64a;
+
+  /* Gradientes / sombra da marca */
+  --gradient-gold: linear-gradient(135deg, #f6e3a1 0%, #e0b64a 45%, #c9962e 100%);
+  --ring-gold: 0 0 0 1px rgba(224, 182, 74, 0.35);
+  --shadow-gold: 0 10px 40px -12px rgba(224, 182, 74, 0.25);
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-foreground: var(--foreground);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
-  --color-border: var(--border);
-  --color-foreground: var(--foreground);
-  --color-muted: var(--muted);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
   --color-primary-fg: var(--primary-fg);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-strong: var(--primary-strong);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-danger: var(--danger);
   --color-success: var(--success);
   --color-warning: var(--warning);
-  --color-danger: var(--danger);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-display);
+  --font-brand: var(--font-brand);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+}
+
+/* Fundo: preto sólido + GRÃO de filme (textura de pôster). */
 body {
-  background: var(--background);
   color: var(--foreground);
+  background: var(--background);
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.06;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---------- Utilitários de marca ---------- */
+
+.text-gold {
+  color: var(--primary);
+}
+.text-gradient-gold {
+  background: var(--gradient-gold);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.bg-gold-gradient {
+  background: var(--gradient-gold);
+}
+.btn-gold {
+  background: var(--gradient-gold);
+  color: var(--primary-fg);
+  box-shadow: var(--shadow-gold);
+  transition: filter 0.15s ease, transform 0.05s ease;
+}
+.btn-gold:hover {
+  filter: brightness(1.05);
+}
+.btn-gold:active {
+  transform: translateY(1px);
+}
+.btn-gold:disabled {
+  filter: grayscale(0.4) brightness(0.8);
+  opacity: 0.6;
+}
+
+.font-display {
+  font-family: var(--font-display), var(--font-geist-sans), sans-serif;
+  letter-spacing: -0.01em;
+  font-weight: 400;
+}
+
+/* Fonte da marca (Rye) — logotipo */
+.font-brand {
+  font-family: var(--font-brand), var(--font-display), serif;
+  font-weight: 400;
+}
+
+/* Textura desgastada (grunge) leve para o wordmark — some pequenos pedaços das
+   letras via máscara de ruído, mantendo a legibilidade. */
+.text-distress {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='60'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 22 -3.5'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='60'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 22 -3.5'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: 120px 60px;
+  mask-size: 120px 60px;
+}
+
+/* ---------- Toques finos ---------- */
+
+::selection {
+  background: rgba(224, 182, 74, 0.28);
+  color: var(--foreground);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--surface-2);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--border);
+  background-clip: padding-box;
 }
