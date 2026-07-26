@@ -1,8 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { brl, reaisToCents } from "@/lib/format";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Button } from "@/components/ui/button";
+import { DataTable } from "@/components/ui/DataTable";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 interface Product {
   id: string;
@@ -23,6 +28,10 @@ interface Alerts {
 }
 
 export default function StockPage() {
+  const router = useRouter();
+  const sp = useSearchParams();
+  const view: "products" | "alerts" = sp.get("tab") === "alerts" ? "alerts" : "products";
+
   const [products, setProducts] = useState<Product[]>([]);
   const [alerts, setAlerts] = useState<Alerts | null>(null);
   const [search, setSearch] = useState("");
@@ -55,6 +64,7 @@ export default function StockPage() {
   }
   useEffect(() => {
     load("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function create(e: React.FormEvent) {
@@ -134,32 +144,33 @@ export default function StockPage() {
   }
 
   const low = (p: Product) => p.stockCurrent <= p.stockMin;
+  const alertCount = alerts ? alerts.lowStock.length + alerts.expiringSoon.length : 0;
+  const dateBR = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleDateString("pt-BR") : "—";
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Estoque</h1>
-          <p className="text-sm text-muted">{products.length} produtos</p>
-        </div>
-        <button
-          onClick={() => setOpen((v) => !v)}
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-fg hover:opacity-90"
-        >
-          {open ? "Fechar" : "Novo produto"}
-        </button>
-      </div>
+      <PageHeader
+        title="Estoque"
+        subtitle={`${products.length} produtos`}
+        actions={
+          view === "products" ? (
+            <Button onClick={() => setOpen((v) => !v)}>
+              {open ? "Fechar" : "Novo produto"}
+            </Button>
+          ) : undefined
+        }
+      />
 
-      {alerts && (alerts.lowStock.length > 0 || alerts.expiringSoon.length > 0) && (
-        <div className="mb-4 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
-          {alerts.lowStock.length > 0 && (
-            <div>⚠ {alerts.lowStock.length} produto(s) com estoque baixo</div>
-          )}
-          {alerts.expiringSoon.length > 0 && (
-            <div>⏳ {alerts.expiringSoon.length} produto(s) com validade próxima</div>
-          )}
-        </div>
-      )}
+      {/* Abas (submódulos) */}
+      <div className="mb-4 flex gap-2">
+        <TabLink active={view === "products"} onClick={() => router.push("/stock")}>
+          Produtos
+        </TabLink>
+        <TabLink active={view === "alerts"} onClick={() => router.push("/stock?tab=alerts")}>
+          Alertas{alertCount > 0 ? ` (${alertCount})` : ""}
+        </TabLink>
+      </div>
 
       {error && (
         <div className="mb-4 rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
@@ -167,96 +178,127 @@ export default function StockPage() {
         </div>
       )}
 
-      {open && (
-        <form onSubmit={create} className="mb-6 rounded-xl border border-border bg-surface p-4">
-          <div className="mb-3 font-medium">Novo produto</div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            <Input label="Nome *" value={name} onChange={setName} wide />
-            <Input label="Código de barras" value={barcode} onChange={setBarcode} />
-            <Input label="Preço venda (R$)" value={price} onChange={setPrice} />
-            <Input label="Custo (R$)" value={cost} onChange={setCost} />
-            <Input label="Estoque inicial" value={stock} onChange={setStock} />
-            <Input label="Estoque mínimo" value={stockMin} onChange={setStockMin} />
-          </div>
-          <button
-            type="submit"
-            disabled={saving}
-            className="mt-3 rounded-lg bg-primary px-5 py-2 font-medium text-primary-fg hover:opacity-90 disabled:opacity-50"
-          >
-            {saving ? "Salvando..." : "Salvar"}
-          </button>
-        </form>
-      )}
-
-      <div className="mb-4 flex gap-2">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && load()}
-          placeholder="Buscar por nome ou código de barras..."
-          className="flex-1 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm outline-none focus:border-primary"
-        />
-        <button
-          onClick={() => load()}
-          className="rounded-lg border border-border px-4 py-2 text-sm text-muted hover:text-foreground"
-        >
-          Buscar
-        </button>
-      </div>
-
-      <div className="overflow-hidden rounded-xl border border-border">
-        <table className="w-full text-sm">
-          <thead className="bg-surface text-left text-muted">
-            <tr>
-              <th className="px-4 py-3 font-medium">Produto</th>
-              <th className="px-4 py-3 font-medium">Preço</th>
-              <th className="px-4 py-3 font-medium">Custo</th>
-              <th className="px-4 py-3 font-medium">Estoque</th>
-              <th className="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {products.map((p) => (
-              <tr key={p.id} className="border-t border-border">
-                <td className="px-4 py-3">
-                  {p.name}
-                  {p.barcode && <span className="ml-2 text-xs text-muted">· {p.barcode}</span>}
-                </td>
-                <td className="px-4 py-3">{brl(p.priceCents)}</td>
-                <td className="px-4 py-3 text-muted">{brl(p.costCents)}</td>
-                <td className="px-4 py-3">
-                  <span className={low(p) ? "text-warning" : ""}>
-                    {p.stockCurrent} {p.unit}
-                  </span>
-                  {low(p) && <span className="ml-1 text-xs text-warning">(baixo)</span>}
-                </td>
-                <td className="px-4 py-3 text-right whitespace-nowrap">
-                  <button onClick={() => move(p.id, "IN")} className="mr-2 text-xs text-success hover:underline">
-                    entrada
-                  </button>
-                  <button onClick={() => move(p.id, "OUT")} className="mr-2 text-xs text-primary hover:underline">
-                    saída
-                  </button>
-                  <button onClick={() => adjust(p.id)} className="mr-2 text-xs text-muted hover:text-foreground">
-                    inventário
-                  </button>
-                  <button onClick={() => remove(p.id)} className="text-xs text-muted hover:text-danger">
-                    remover
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {products.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted">
-                  Nenhum produto
-                </td>
-              </tr>
+      {view === "alerts" ? (
+        <div className="flex flex-col gap-6">
+          <section>
+            <h2 className="mb-2 text-sm font-medium text-warning">⚠ Estoque baixo</h2>
+            {alerts && alerts.lowStock.length > 0 ? (
+              <DataTable
+                head={["Produto", "Estoque", "Mínimo"]}
+                rows={alerts.lowStock.map((p) => [
+                  p.name,
+                  <span className="text-warning">{p.stockCurrent} {p.unit}</span>,
+                  String(p.stockMin),
+                ])}
+              />
+            ) : (
+              <EmptyState>Nenhum produto com estoque baixo.</EmptyState>
             )}
-          </tbody>
-        </table>
-      </div>
+          </section>
+          <section>
+            <h2 className="mb-2 text-sm font-medium text-warning">⏳ Validade próxima</h2>
+            {alerts && alerts.expiringSoon.length > 0 ? (
+              <DataTable
+                head={["Produto", "Validade", "Estoque"]}
+                rows={alerts.expiringSoon.map((p) => [
+                  p.name,
+                  dateBR(p.expiresAt),
+                  `${p.stockCurrent} ${p.unit}`,
+                ])}
+              />
+            ) : (
+              <EmptyState>Nenhum produto com validade próxima.</EmptyState>
+            )}
+          </section>
+        </div>
+      ) : (
+        <>
+          {open && (
+            <form onSubmit={create} className="mb-6 rounded-xl border border-border bg-surface p-4">
+              <div className="mb-3 font-medium">Novo produto</div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                <Input label="Nome *" value={name} onChange={setName} wide />
+                <Input label="Código de barras" value={barcode} onChange={setBarcode} />
+                <Input label="Preço venda (R$)" value={price} onChange={setPrice} />
+                <Input label="Custo (R$)" value={cost} onChange={setCost} />
+                <Input label="Estoque inicial" value={stock} onChange={setStock} />
+                <Input label="Estoque mínimo" value={stockMin} onChange={setStockMin} />
+              </div>
+              <Button type="submit" disabled={saving} className="mt-3">
+                {saving ? "Salvando..." : "Salvar"}
+              </Button>
+            </form>
+          )}
+
+          <div className="mb-4 flex gap-2">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && load()}
+              placeholder="Buscar por nome ou código de barras..."
+              className="flex-1 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+            <Button variant="outline" onClick={() => load()}>
+              Buscar
+            </Button>
+          </div>
+
+          <DataTable
+            head={["Produto", "Preço", "Custo", "Estoque", ""]}
+            empty="Nenhum produto"
+            rows={products.map((p) => [
+              <span>
+                {p.name}
+                {p.barcode && <span className="ml-2 text-xs text-muted-foreground">· {p.barcode}</span>}
+              </span>,
+              brl(p.priceCents),
+              <span className="text-muted-foreground">{brl(p.costCents)}</span>,
+              <span className={low(p) ? "text-warning" : ""}>
+                {p.stockCurrent} {p.unit}
+                {low(p) && <span className="ml-1 text-xs text-warning">(baixo)</span>}
+              </span>,
+              <div className="whitespace-nowrap text-right">
+                <button onClick={() => move(p.id, "IN")} className="mr-2 text-xs text-success hover:underline">
+                  entrada
+                </button>
+                <button onClick={() => move(p.id, "OUT")} className="mr-2 text-xs text-primary hover:underline">
+                  saída
+                </button>
+                <button onClick={() => adjust(p.id)} className="mr-2 text-xs text-muted-foreground hover:text-foreground">
+                  inventário
+                </button>
+                <button onClick={() => remove(p.id)} className="text-xs text-muted-foreground hover:text-danger">
+                  remover
+                </button>
+              </div>,
+            ])}
+          />
+        </>
+      )}
     </div>
+  );
+}
+
+function TabLink({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-lg px-3 py-1.5 text-sm transition ${
+        active
+          ? "btn-gold font-medium"
+          : "border border-border text-muted-foreground hover:text-foreground"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -273,7 +315,7 @@ function Input({
 }) {
   return (
     <label className={`block ${wide ? "col-span-2" : ""}`}>
-      <span className="mb-1 block text-xs text-muted">{label}</span>
+      <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}

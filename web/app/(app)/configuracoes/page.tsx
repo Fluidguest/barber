@@ -94,12 +94,12 @@ export default function ConfiguracoesPage() {
     }
   }
 
-  if (!s) return <p className="text-muted">Carregando...</p>;
+  if (!s) return <p className="text-muted-foreground">Carregando...</p>;
 
   return (
     <div className="max-w-2xl">
       <h1 className="mb-1 text-2xl font-semibold">Configurações</h1>
-      <p className="mb-6 text-sm text-muted">Integrações da barbearia (WhatsApp)</p>
+      <p className="mb-6 text-sm text-muted-foreground">Integrações da barbearia (WhatsApp)</p>
 
       {error && (
         <div className="mb-4 rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">{error}</div>
@@ -175,7 +175,7 @@ export default function ConfiguracoesPage() {
         {/* ---- Pagamento no PDV ---- */}
         <div className="mt-8 border-t border-border pt-6">
           <h2 className="mb-1 text-lg font-medium">Pagamento no PDV</h2>
-          <p className="mb-4 text-sm text-muted">
+          <p className="mb-4 text-sm text-muted-foreground">
             Cobrança PIX do cliente na comanda. Com o provedor{" "}
             <strong>demonstração</strong> o QR é fictício e o pagamento é
             confirmado manualmente.
@@ -217,7 +217,7 @@ export default function ConfiguracoesPage() {
                   className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm outline-none focus:border-primary"
                 />
               </Field>
-              <p className="mt-2 text-xs text-muted">
+              <p className="mt-2 text-xs text-muted-foreground">
                 No painel do Mercado Pago, aponte o webhook de{" "}
                 <em>pagamentos</em> para{" "}
                 <code>&lt;sua-api&gt;/api/payments/webhook</code>.
@@ -234,7 +234,7 @@ export default function ConfiguracoesPage() {
           {saving ? "Salvando..." : "Salvar"}
         </button>
 
-        <p className="mt-3 text-xs text-muted">
+        <p className="mt-3 text-xs text-muted-foreground">
           Os tokens são cifrados em repouso. Deixe o campo de token vazio para
           manter o valor atual.
         </p>
@@ -246,7 +246,7 @@ export default function ConfiguracoesPage() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="mb-3 block">
-      <span className="mb-1 block text-xs text-muted">{label}</span>
+      <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
       {children}
     </label>
   );

@@ -37,7 +37,7 @@ const CORES: Record<Tenant["status"], string> = {
   ACTIVE: "border-success/40 bg-success/10 text-success",
   TRIAL: "border-primary/40 bg-primary/10 text-primary",
   SUSPENDED: "border-danger/40 bg-danger/10 text-danger",
-  CANCELED: "border-border bg-surface-2 text-muted",
+  CANCELED: "border-border bg-surface-2 text-muted-foreground",
 };
 
 export default function PlatformPage() {
@@ -87,15 +87,15 @@ function Login({ onLogged }: { onLogged: (t: string) => void }) {
       <form onSubmit={submit} className="w-full max-w-sm rounded-2xl border border-border bg-surface p-8 shadow-xl">
         <div className="mb-6">
           <div className="text-2xl font-semibold">Painel da Plataforma</div>
-          <p className="mt-1 text-sm text-muted">Acesso do operador do SaaS</p>
+          <p className="mt-1 text-sm text-muted-foreground">Acesso do operador do SaaS</p>
         </div>
         <label className="mb-4 block">
-          <span className="mb-1.5 block text-sm text-muted">E-mail</span>
+          <span className="mb-1.5 block text-sm text-muted-foreground">E-mail</span>
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required
             className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 outline-none focus:border-primary" />
         </label>
         <label className="mb-4 block">
-          <span className="mb-1.5 block text-sm text-muted">Senha</span>
+          <span className="mb-1.5 block text-sm text-muted-foreground">Senha</span>
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required
             className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 outline-none focus:border-primary" />
         </label>
@@ -106,7 +106,7 @@ function Login({ onLogged }: { onLogged: (t: string) => void }) {
           className="w-full rounded-lg bg-primary py-2.5 font-medium text-primary-fg transition hover:opacity-90 disabled:opacity-50">
           {loading ? "Entrando..." : "Entrar"}
         </button>
-        <p className="mt-4 text-center text-xs text-muted">
+        <p className="mt-4 text-center text-xs text-muted-foreground">
           Operador criado via <code>npm run platform:admin</code>
         </p>
       </form>
@@ -169,7 +169,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
       <header className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Painel da Plataforma</h1>
-          <p className="text-sm text-muted">Barbearias clientes</p>
+          <p className="text-sm text-muted-foreground">Barbearias clientes</p>
         </div>
         <button onClick={onLogout} className="rounded-lg border border-border px-3 py-1.5 text-sm hover:border-primary">
           Sair
@@ -199,7 +199,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
 
       <div className="overflow-x-auto rounded-xl border border-border">
         <table className="w-full text-sm">
-          <thead className="bg-surface-2 text-left text-muted">
+          <thead className="bg-surface-2 text-left text-muted-foreground">
             <tr>
               <th className="px-4 py-3">Barbearia</th>
               <th className="px-4 py-3">Situação</th>
@@ -213,7 +213,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
               <tr key={t.id} className="border-t border-border">
                 <td className="px-4 py-3">
                   <div className="font-medium">{t.name}</div>
-                  <div className="text-xs text-muted">/{t.slug}</div>
+                  <div className="text-xs text-muted-foreground">/{t.slug}</div>
                 </td>
                 <td className="px-4 py-3">
                   <span className={`rounded-full border px-2 py-0.5 text-xs ${CORES[t.status]}`}>
@@ -221,7 +221,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
                   </span>
                 </td>
                 <td className="px-4 py-3">{t.users}</td>
-                <td className="px-4 py-3 text-muted">
+                <td className="px-4 py-3 text-muted-foreground">
                   {new Date(t.createdAt).toLocaleDateString("pt-BR")}
                 </td>
                 <td className="px-4 py-3 text-right">
@@ -241,7 +241,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
             ))}
             {tenants.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted">
+                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
                   Nenhuma barbearia encontrada
                 </td>
               </tr>
@@ -256,7 +256,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
 function Card({ rotulo, valor, tom }: { rotulo: string; valor: number; tom?: string }) {
   return (
     <div className="rounded-xl border border-border bg-surface p-4">
-      <div className="text-xs text-muted">{rotulo}</div>
+      <div className="text-xs text-muted-foreground">{rotulo}</div>
       <div className={`mt-1 text-2xl font-semibold ${tom ?? ""}`}>{valor}</div>
     </div>
   );

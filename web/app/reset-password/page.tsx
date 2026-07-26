@@ -56,7 +56,7 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-sm rounded-2xl border border-border bg-surface p-8 shadow-xl">
         <div className="mb-6">
           <div className="text-2xl font-semibold">Nova senha</div>
-          <p className="mt-1 text-sm text-muted">
+          <p className="mt-1 text-sm text-muted-foreground">
             Escolha uma senha de ao menos 8 caracteres.
           </p>
         </div>
@@ -128,7 +128,7 @@ function Field({
 }) {
   return (
     <label className="mb-4 block">
-      <span className="mb-1.5 block text-sm text-muted">{label}</span>
+      <span className="mb-1.5 block text-sm text-muted-foreground">{label}</span>
       <input
         type={type}
         value={value}

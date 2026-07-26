@@ -102,7 +102,7 @@ export default function CommissionsPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Comissões</h1>
-          <p className="text-sm text-muted">Fechamento por período</p>
+          <p className="text-sm text-muted-foreground">Fechamento por período</p>
         </div>
         <div className="flex items-center gap-3">
           <input
@@ -130,7 +130,7 @@ export default function CommissionsPage() {
       {/* Resumo por barbeiro */}
       <div className="mb-6 overflow-hidden rounded-xl border border-border">
         <table className="w-full text-sm">
-          <thead className="bg-surface text-left text-muted">
+          <thead className="bg-surface text-left text-muted-foreground">
             <tr>
               <th className="px-4 py-3 font-medium">Barbeiro</th>
               <th className="px-4 py-3 font-medium">Pendente</th>
@@ -151,7 +151,7 @@ export default function CommissionsPage() {
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted">
+                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
                   Nenhuma comissão neste período
                 </td>
               </tr>
@@ -161,12 +161,12 @@ export default function CommissionsPage() {
       </div>
 
       {/* Lançamentos detalhados */}
-      <div className="mb-2 text-sm text-muted">
+      <div className="mb-2 text-sm text-muted-foreground">
         {entries.length} lançamento(s)
       </div>
       <div className="overflow-hidden rounded-xl border border-border">
         <table className="w-full text-sm">
-          <thead className="bg-surface text-left text-muted">
+          <thead className="bg-surface text-left text-muted-foreground">
             <tr>
               <th className="px-4 py-3 font-medium">Barbeiro</th>
               <th className="px-4 py-3 font-medium">Base</th>
@@ -178,14 +178,14 @@ export default function CommissionsPage() {
             {entries.map((e) => (
               <tr key={e.id} className="border-t border-border">
                 <td className="px-4 py-3">{barberName(e.barberId)}</td>
-                <td className="px-4 py-3 text-muted">{brl(e.baseCents)}</td>
+                <td className="px-4 py-3 text-muted-foreground">{brl(e.baseCents)}</td>
                 <td className="px-4 py-3">{brl(e.amountCents)}</td>
-                <td className="px-4 py-3 text-muted">{STATUS_LABEL[e.status] ?? e.status}</td>
+                <td className="px-4 py-3 text-muted-foreground">{STATUS_LABEL[e.status] ?? e.status}</td>
               </tr>
             ))}
             {entries.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-muted">
+                <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
                   Sem lançamentos
                 </td>
               </tr>

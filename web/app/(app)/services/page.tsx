@@ -93,14 +93,14 @@ export default function ServicesPage() {
   return (
     <div>
       <h1 className="mb-1 text-2xl font-semibold">Serviços</h1>
-      <p className="mb-6 text-sm text-muted">{services.length} cadastrados</p>
+      <p className="mb-6 text-sm text-muted-foreground">{services.length} cadastrados</p>
 
       <form
         onSubmit={submit}
         className="mb-6 flex flex-wrap items-end gap-3 rounded-xl border border-border bg-surface p-4"
       >
         <label className="flex-1">
-          <span className="mb-1 block text-xs text-muted">Nome</span>
+          <span className="mb-1 block text-xs text-muted-foreground">Nome</span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -109,7 +109,7 @@ export default function ServicesPage() {
           />
         </label>
         <label className="w-28">
-          <span className="mb-1 block text-xs text-muted">Duração (min)</span>
+          <span className="mb-1 block text-xs text-muted-foreground">Duração (min)</span>
           <input
             value={duration}
             onChange={(e) => setDuration(e.target.value)}
@@ -117,7 +117,7 @@ export default function ServicesPage() {
           />
         </label>
         <label className="w-32">
-          <span className="mb-1 block text-xs text-muted">Preço (R$)</span>
+          <span className="mb-1 block text-xs text-muted-foreground">Preço (R$)</span>
           <input
             value={price}
             onChange={(e) => setPrice(e.target.value)}
@@ -136,7 +136,7 @@ export default function ServicesPage() {
           <button
             type="button"
             onClick={resetForm}
-            className="rounded-lg border border-border px-4 py-2 text-sm text-muted hover:border-primary"
+            className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:border-primary"
           >
             Cancelar
           </button>
@@ -151,7 +151,7 @@ export default function ServicesPage() {
 
       <div className="overflow-hidden rounded-xl border border-border">
         <table className="w-full text-sm">
-          <thead className="bg-surface text-left text-muted">
+          <thead className="bg-surface text-left text-muted-foreground">
             <tr>
               <th className="px-4 py-3 font-medium">Serviço</th>
               <th className="px-4 py-3 font-medium">Duração</th>
@@ -163,18 +163,18 @@ export default function ServicesPage() {
             {services.map((s) => (
               <tr key={s.id} className="border-t border-border">
                 <td className="px-4 py-3">{s.name}</td>
-                <td className="px-4 py-3 text-muted">{s.durationMin} min</td>
+                <td className="px-4 py-3 text-muted-foreground">{s.durationMin} min</td>
                 <td className="px-4 py-3">{brl(s.priceCents)}</td>
                 <td className="px-4 py-3 text-right">
                   <button
                     onClick={() => startEdit(s)}
-                    className="mr-3 text-xs text-muted hover:text-primary"
+                    className="mr-3 text-xs text-muted-foreground hover:text-primary"
                   >
                     editar
                   </button>
                   <button
                     onClick={() => remove(s.id)}
-                    className="text-xs text-muted hover:text-danger"
+                    className="text-xs text-muted-foreground hover:text-danger"
                   >
                     remover
                   </button>
@@ -183,7 +183,7 @@ export default function ServicesPage() {
             ))}
             {services.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-muted">
+                <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
                   Nenhum serviço ainda
                 </td>
               </tr>

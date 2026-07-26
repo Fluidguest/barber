@@ -33,7 +33,7 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-sm rounded-2xl border border-border bg-surface p-8 shadow-xl">
         <div className="mb-6">
           <div className="text-2xl font-semibold">Esqueci minha senha</div>
-          <p className="mt-1 text-sm text-muted">
+          <p className="mt-1 text-sm text-muted-foreground">
             Enviaremos um link de redefinição para o seu e-mail.
           </p>
         </div>
@@ -67,7 +67,7 @@ export default function ForgotPasswordPage() {
             >
               {loading ? "Enviando..." : "Enviar link"}
             </button>
-            <p className="mt-4 text-center text-xs text-muted">
+            <p className="mt-4 text-center text-xs text-muted-foreground">
               <Link href="/login" className="hover:underline">
                 Voltar ao login
               </Link>
@@ -92,7 +92,7 @@ function Field({
 }) {
   return (
     <label className="mb-4 block">
-      <span className="mb-1.5 block text-sm text-muted">{label}</span>
+      <span className="mb-1.5 block text-sm text-muted-foreground">{label}</span>
       <input
         type={type}
         value={value}

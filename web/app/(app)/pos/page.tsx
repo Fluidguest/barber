@@ -323,18 +323,18 @@ export default function PosPage() {
     }
   }
 
-  if (loading) return <p className="text-muted">Carregando...</p>;
+  if (loading) return <p className="text-muted-foreground">Carregando...</p>;
 
   return (
     <div>
       <h1 className="mb-1 text-2xl font-semibold">Caixa / PDV</h1>
-      <p className="mb-6 text-sm text-muted">
+      <p className="mb-6 text-sm text-muted-foreground">
         {cash ? (
           <span className="text-success">
             Caixa aberto · fundo {brl(cash.openingCents)}
           </span>
         ) : (
-          <span className="text-muted">Caixa fechado</span>
+          <span className="text-muted-foreground">Caixa fechado</span>
         )}
       </p>
 
@@ -348,7 +348,7 @@ export default function PosPage() {
         <div className="max-w-sm rounded-xl border border-border bg-surface p-5">
           <div className="mb-3 font-medium">Abrir caixa</div>
           <label className="mb-3 block">
-            <span className="mb-1 block text-xs text-muted">Fundo de troco (R$)</span>
+            <span className="mb-1 block text-xs text-muted-foreground">Fundo de troco (R$)</span>
             <input
               value={opening}
               onChange={(e) => setOpening(e.target.value)}
@@ -379,7 +379,7 @@ export default function PosPage() {
           </div>
           <button
             onClick={closeCash}
-            className="max-w-md rounded-lg border border-border py-2 text-sm text-muted hover:text-foreground"
+            className="max-w-md rounded-lg border border-border py-2 text-sm text-muted-foreground hover:text-foreground"
           >
             Fechar caixa
           </button>
@@ -399,7 +399,7 @@ export default function PosPage() {
                   className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-left text-sm hover:border-primary"
                 >
                   <div>{s.name}</div>
-                  <div className="text-xs text-muted">{brl(s.priceCents)}</div>
+                  <div className="text-xs text-muted-foreground">{brl(s.priceCents)}</div>
                 </button>
               ))}
             </div>
@@ -416,7 +416,7 @@ export default function PosPage() {
                       className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-left text-sm hover:border-primary disabled:opacity-40"
                     >
                       <div>{p.name}</div>
-                      <div className="text-xs text-muted">
+                      <div className="text-xs text-muted-foreground">
                         {brl(p.priceCents)} · {p.stockCurrent} em estoque
                       </div>
                     </button>
@@ -430,14 +430,14 @@ export default function PosPage() {
           <div className="rounded-xl border border-border bg-surface p-5">
             <div className="mb-3 flex items-center justify-between">
               <span className="font-medium">Comanda</span>
-              <span className="text-xs text-muted">
+              <span className="text-xs text-muted-foreground">
                 {barbers.find((b) => b.id === sale.barberId)?.name ?? "sem barbeiro"}
               </span>
             </div>
 
             <div className="mb-3 flex flex-col gap-1 text-sm">
               {sale.items.length === 0 && (
-                <span className="text-muted">Nenhum item.</span>
+                <span className="text-muted-foreground">Nenhum item.</span>
               )}
               {sale.items.map((it) => (
                 <div key={it.id} className="flex justify-between">
@@ -451,7 +451,7 @@ export default function PosPage() {
 
             {/* Acréscimo / desconto */}
             <div className="mt-3 border-t border-border pt-3">
-              <div className="mb-2 flex items-center justify-between text-sm text-muted">
+              <div className="mb-2 flex items-center justify-between text-sm text-muted-foreground">
                 <span>Subtotal</span>
                 <span>{brl(sale.subtotalCents)}</span>
               </div>
@@ -467,7 +467,7 @@ export default function PosPage() {
                     {brl(sale.adjustmentCents)}
                     <button
                       onClick={clearAdjustment}
-                      className="text-xs text-muted hover:text-danger"
+                      className="text-xs text-muted-foreground hover:text-danger"
                       title="Remover"
                     >
                       ✕
@@ -523,7 +523,7 @@ export default function PosPage() {
               <span>Total</span>
               <span>{brl(sale.totalCents)}</span>
             </div>
-            <div className="mt-1 flex justify-between text-sm text-muted">
+            <div className="mt-1 flex justify-between text-sm text-muted-foreground">
               <span>Pago</span>
               <span>{brl(paid(sale))}</span>
             </div>
@@ -567,7 +567,7 @@ export default function PosPage() {
                       <span className="font-medium">
                         PIX de {brl(charge.amountCents)}
                       </span>
-                      <span className="text-muted">aguardando pagamento...</span>
+                      <span className="text-muted-foreground">aguardando pagamento...</span>
                     </div>
 
                     {charge.qrCodeBase64 && (
@@ -581,7 +581,7 @@ export default function PosPage() {
 
                     {charge.qrCode && (
                       <>
-                        <p className="mb-1 text-xs text-muted">Copia e cola:</p>
+                        <p className="mb-1 text-xs text-muted-foreground">Copia e cola:</p>
                         <div className="flex gap-2">
                           <input
                             readOnly
@@ -604,7 +604,7 @@ export default function PosPage() {
                     {charge.provider === "fake" && (
                       <button
                         onClick={simulatePix}
-                        className="mt-2 w-full rounded-lg border border-dashed border-border py-1.5 text-xs text-muted hover:border-primary"
+                        className="mt-2 w-full rounded-lg border border-dashed border-border py-1.5 text-xs text-muted-foreground hover:border-primary"
                       >
                         Simular pagamento (modo demonstração)
                       </button>
@@ -621,7 +621,7 @@ export default function PosPage() {
                     </span>
                     <button
                       onClick={() => setCharge(null)}
-                      className="text-xs text-muted hover:underline"
+                      className="text-xs text-muted-foreground hover:underline"
                     >
                       nova cobrança
                     </button>
@@ -661,7 +661,7 @@ function Select({
 }) {
   return (
     <label className="mb-3 block">
-      <span className="mb-1 block text-xs text-muted">{label}</span>
+      <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { api, ApiError, downloadFile } from "@/lib/api";
 import { brl } from "@/lib/format";
 
@@ -54,11 +55,18 @@ function monthRange(month: string) {
 const CURVE_COLOR: Record<string, string> = {
   A: "text-success",
   B: "text-warning",
-  C: "text-muted",
+  C: "text-muted-foreground",
 };
 
+const TABS: Tab[] = ["dre", "barbers", "abc", "inactive"];
+
 export default function ReportsPage() {
-  const [tab, setTab] = useState<Tab>("dre");
+  const router = useRouter();
+  const sp = useSearchParams();
+  // A aba é derivada da URL (?tab=) — o submódulo na sidebar controla a página.
+  const raw = sp.get("tab");
+  const tab: Tab = TABS.includes(raw as Tab) ? (raw as Tab) : "dre";
+  const setTab = (t: Tab) => router.push(`/reports?tab=${t}`);
   const [month, setMonth] = useState(currentMonth());
   const [dre, setDre] = useState<Dre | null>(null);
   const [barbers, setBarbers] = useState<BarberRow[]>([]);
@@ -121,7 +129,7 @@ export default function ReportsPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Relatórios</h1>
-          <p className="text-sm text-muted">Business Intelligence</p>
+          <p className="text-sm text-muted-foreground">Business Intelligence</p>
         </div>
         <div className="flex items-center gap-2">
           {tab === "inactive" ? (
@@ -164,7 +172,7 @@ export default function ReportsPage() {
             key={v}
             onClick={() => setTab(v)}
             className={`rounded-lg px-3 py-1.5 text-sm transition ${
-              tab === v ? "bg-primary text-primary-fg" : "border border-border text-muted hover:text-foreground"
+              tab === v ? "bg-primary text-primary-fg" : "border border-border text-muted-foreground hover:text-foreground"
             }`}
           >
             {l}
@@ -225,7 +233,7 @@ export default function ReportsPage() {
 
       {tab === "inactive" && (
         <>
-          <p className="mb-3 text-sm text-muted">
+          <p className="mb-3 text-sm text-muted-foreground">
             {inactive.length} cliente(s) sem atendimento há {inactiveDays}+ dias —
             bons candidatos a uma mensagem de reativação.
           </p>
@@ -269,11 +277,11 @@ function Panel({
       <div className="flex flex-col gap-1 text-sm">
         {lines.map((l, i) => (
           <div key={i} className="flex justify-between">
-            <span className="text-muted">{l.label}</span>
+            <span className="text-muted-foreground">{l.label}</span>
             <span>{brl(l.amountCents)}</span>
           </div>
         ))}
-        {lines.length === 0 && <span className="text-muted">Sem lançamentos</span>}
+        {lines.length === 0 && <span className="text-muted-foreground">Sem lançamentos</span>}
       </div>
     </div>
   );
@@ -291,7 +299,7 @@ function Table({
   return (
     <div className="overflow-hidden rounded-xl border border-border">
       <table className="w-full text-sm">
-        <thead className="bg-surface text-left text-muted">
+        <thead className="bg-surface text-left text-muted-foreground">
           <tr>
             {head.map((h) => (
               <th key={h} className="px-4 py-3 font-medium">
@@ -312,7 +320,7 @@ function Table({
           ))}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={head.length} className="px-4 py-8 text-center text-muted">
+              <td colSpan={head.length} className="px-4 py-8 text-center text-muted-foreground">
                 {empty}
               </td>
             </tr>

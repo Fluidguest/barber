@@ -189,11 +189,11 @@ export default function ConversasPage() {
                   </span>
                 )}
               </div>
-              <span className="truncate text-xs text-muted">{c.lastPreview ?? ""}</span>
+              <span className="truncate text-xs text-muted-foreground">{c.lastPreview ?? ""}</span>
             </button>
           ))}
           {convos.length === 0 && (
-            <div className="p-4 text-center text-sm text-muted">Nenhuma conversa</div>
+            <div className="p-4 text-center text-sm text-muted-foreground">Nenhuma conversa</div>
           )}
         </div>
       </aside>
@@ -206,7 +206,7 @@ export default function ConversasPage() {
           </div>
         )}
         {!selectedId && !newTo ? (
-          <div className="flex flex-1 items-center justify-center text-muted">
+          <div className="flex flex-1 items-center justify-center text-muted-foreground">
             Selecione uma conversa ou inicie uma nova
           </div>
         ) : (
@@ -218,7 +218,7 @@ export default function ConversasPage() {
               {thread && (
                 <button
                   onClick={simulateReply}
-                  className="rounded-lg border border-border px-2 py-1 text-xs text-muted hover:text-foreground"
+                  className="rounded-lg border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
                   title="Demo: injeta uma mensagem recebida (sem depender do WhatsApp real)"
                 >
                   simular recebida
@@ -282,7 +282,7 @@ export default function ConversasPage() {
               <button
                 onClick={() => fileRef.current?.click()}
                 title="Anexar mídia"
-                className="rounded-lg border border-border px-3 py-2 text-sm text-muted hover:text-foreground"
+                className="rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
               >
                 📎
               </button>

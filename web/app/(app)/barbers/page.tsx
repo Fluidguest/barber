@@ -170,12 +170,12 @@ export default function BarbersPage() {
   return (
     <div>
       <h1 className="mb-1 text-2xl font-semibold">Barbeiros</h1>
-      <p className="mb-6 text-sm text-muted">{barbers.length} cadastrados</p>
+      <p className="mb-6 text-sm text-muted-foreground">{barbers.length} cadastrados</p>
 
       <form onSubmit={submit} className="mb-6 rounded-xl border border-border bg-surface p-4">
         <div className="mb-2 text-sm font-medium">
           {editingId ? "Editar barbeiro" : "Novo barbeiro"}
-          <span className="ml-2 text-xs font-normal text-muted">* campos obrigatórios</span>
+          <span className="ml-2 text-xs font-normal text-muted-foreground">* campos obrigatórios</span>
         </div>
 
         {/* Dados pessoais (obrigatórios) */}
@@ -193,7 +193,7 @@ export default function BarbersPage() {
         </div>
 
         {/* Endereço (obrigatório) */}
-        <div className="mb-1 text-xs text-muted">Endereço *</div>
+        <div className="mb-1 text-xs text-muted-foreground">Endereço *</div>
         <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-6">
           <Campo label="CEP" req value={form.zip} onChange={set("zip")} />
           <Campo label="Rua" req value={form.street} onChange={set("street")} className="sm:col-span-3" />
@@ -205,7 +205,7 @@ export default function BarbersPage() {
         </div>
 
         {/* Dados bancários e PIX (opcionais) */}
-        <div className="mb-1 text-xs text-muted">Dados bancários e PIX (opcional)</div>
+        <div className="mb-1 text-xs text-muted-foreground">Dados bancários e PIX (opcional)</div>
         <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-6">
           <Campo label="Chave PIX" value={form.pixKey} onChange={set("pixKey")} className="sm:col-span-2" />
           <Campo label="Banco" value={form.bankName} onChange={set("bankName")} className="sm:col-span-2" />
@@ -217,7 +217,7 @@ export default function BarbersPage() {
 
         {services.length > 0 && (
           <div className="mb-4">
-            <span className="mb-2 block text-xs text-muted">Especialidades</span>
+            <span className="mb-2 block text-xs text-muted-foreground">Especialidades</span>
             <div className="flex flex-wrap gap-2">
               {services.map((s) => (
                 <button
@@ -227,7 +227,7 @@ export default function BarbersPage() {
                   className={`rounded-full border px-3 py-1 text-xs transition ${
                     specialtyIds.includes(s.id)
                       ? "border-primary bg-primary/15 text-foreground"
-                      : "border-border text-muted hover:text-foreground"
+                      : "border-border text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   {s.name}
@@ -249,7 +249,7 @@ export default function BarbersPage() {
             <button
               type="button"
               onClick={resetForm}
-              className="rounded-lg border border-border px-4 py-2 text-sm text-muted hover:border-primary"
+              className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:border-primary"
             >
               Cancelar
             </button>
@@ -264,13 +264,13 @@ export default function BarbersPage() {
       )}
 
       <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-border bg-surface p-4">
-        <span className="text-sm text-muted">Jornada rápida (Seg–Sex):</span>
+        <span className="text-sm text-muted-foreground">Jornada rápida (Seg–Sex):</span>
         <input value={start} onChange={(e) => setStart(e.target.value)}
           className="w-24 rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm outline-none" />
-        <span className="text-muted">até</span>
+        <span className="text-muted-foreground">até</span>
         <input value={end} onChange={(e) => setEnd(e.target.value)}
           className="w-24 rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm outline-none" />
-        <span className="text-xs text-muted">(aplique em um barbeiro na lista)</span>
+        <span className="text-xs text-muted-foreground">(aplique em um barbeiro na lista)</span>
       </div>
 
       <div className="flex flex-col gap-3">
@@ -278,45 +278,45 @@ export default function BarbersPage() {
           <div key={b.id} className="flex items-center gap-4 rounded-xl border border-border bg-surface p-4">
             <div className="flex-1">
               <div className="font-medium">{b.name}</div>
-              <div className="text-sm text-muted">
+              <div className="text-sm text-muted-foreground">
                 {[b.phone, b.email].filter(Boolean).join(" · ") || "sem contato"}
                 {b.document && ` · CPF ${b.document}`}
               </div>
               {b.address?.city && (
-                <div className="text-xs text-muted">
+                <div className="text-xs text-muted-foreground">
                   {[b.address.street, b.address.number, b.address.city, b.address.state]
                     .filter(Boolean).join(", ")}
                 </div>
               )}
               {(b.pixKey || b.bankData?.bank) && (
-                <div className="text-xs text-muted">
+                <div className="text-xs text-muted-foreground">
                   {b.pixKey && `PIX: ${b.pixKey}`}
                   {b.pixKey && b.bankData?.bank && " · "}
                   {b.bankData?.bank && `${b.bankData.bank} ${b.bankData.agency ?? ""}/${b.bankData.account ?? ""}`}
                 </div>
               )}
               {b.specialties.length > 0 && (
-                <div className="mt-1 text-xs text-muted">
+                <div className="mt-1 text-xs text-muted-foreground">
                   {b.specialties.map((s) => svcName(s.serviceId)).join(", ")}
                 </div>
               )}
             </div>
             <button onClick={() => startEdit(b)}
-              className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted hover:border-primary hover:text-foreground">
+              className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:border-primary hover:text-foreground">
               editar
             </button>
             <button onClick={() => setSchedule(b.id)}
-              className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted hover:border-primary hover:text-foreground">
+              className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:border-primary hover:text-foreground">
               jornada
             </button>
             <button onClick={() => remove(b.id)}
-              className="text-xs text-muted hover:text-danger">
+              className="text-xs text-muted-foreground hover:text-danger">
               remover
             </button>
           </div>
         ))}
         {barbers.length === 0 && (
-          <div className="rounded-xl border border-border bg-surface p-8 text-center text-muted">
+          <div className="rounded-xl border border-border bg-surface p-8 text-center text-muted-foreground">
             Nenhum barbeiro ainda
           </div>
         )}
@@ -339,7 +339,7 @@ function Campo({
 }) {
   return (
     <label className={className}>
-      <span className="mb-1 block text-xs text-muted">
+      <span className="mb-1 block text-xs text-muted-foreground">
         {label}{req && <span className="text-danger"> *</span>}
       </span>
       <input

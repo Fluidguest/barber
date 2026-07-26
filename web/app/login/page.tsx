@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { login, ApiError } from "@/lib/api";
+import { LogoStacked } from "@/components/layout/Logo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -21,7 +22,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(slug, email, password, code);
-      router.replace("/dashboard");
+      router.replace("/home");
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : "Falha ao entrar";
       // Quando o backend pede o 2FA, revela o campo de código.
@@ -40,11 +41,11 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center p-4">
       <form
         onSubmit={submit}
-        className="w-full max-w-sm rounded-2xl border border-border bg-surface p-8 shadow-xl"
+        className="w-full max-w-sm rounded-2xl border border-border bg-surface p-8 shadow-2xl"
       >
-        <div className="mb-6">
-          <div className="text-2xl font-semibold">Barber SaaS</div>
-          <p className="mt-1 text-sm text-muted">Acesse sua barbearia</p>
+        <div className="mb-6 flex flex-col items-center">
+          <LogoStacked />
+          <p className="mt-3 text-sm text-muted-foreground">Acesse sua barbearia</p>
         </div>
 
         <Field label="Barbearia (slug)" value={slug} onChange={setSlug} />
@@ -73,18 +74,18 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-lg bg-primary py-2.5 font-medium text-primary-fg transition hover:opacity-90 disabled:opacity-50"
+          className="btn-gold w-full rounded-lg py-2.5 font-semibold disabled:cursor-not-allowed"
         >
           {loading ? "Entrando..." : "Entrar"}
         </button>
 
         <p className="mt-4 text-center text-sm">
-          <Link href="/forgot-password" className="text-muted hover:underline">
+          <Link href="/forgot-password" className="text-muted-foreground hover:underline">
             Esqueci minha senha
           </Link>
         </p>
 
-        <p className="mt-3 text-center text-xs text-muted">
+        <p className="mt-3 text-center text-xs text-muted-foreground">
           Demo: demo / admin@demo.com / demo1234
         </p>
       </form>
@@ -105,7 +106,7 @@ function Field({
 }) {
   return (
     <label className="mb-4 block">
-      <span className="mb-1.5 block text-sm text-muted">{label}</span>
+      <span className="mb-1.5 block text-sm text-muted-foreground">{label}</span>
       <input
         type={type}
         value={value}

@@ -45,3 +45,4 @@ async function bootstrap() {
   app.get(Logger).log(`API em http://localhost:${port}/api`);
 }
 bootstrap();
+

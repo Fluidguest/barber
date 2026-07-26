@@ -177,7 +177,7 @@ export default function FinancePage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Financeiro</h1>
-          <p className="text-sm text-muted">Fluxo de caixa do mês</p>
+          <p className="text-sm text-muted-foreground">Fluxo de caixa do mês</p>
         </div>
         <button
           onClick={() => setOpen((v) => !v)}
@@ -218,7 +218,7 @@ export default function FinancePage() {
             <div className="mb-3 font-medium">Novo lançamento</div>
             <div className="grid grid-cols-2 gap-3">
               <label className="block">
-                <span className="mb-1 block text-xs text-muted">Tipo</span>
+                <span className="mb-1 block text-xs text-muted-foreground">Tipo</span>
                 <select
                   value={type}
                   onChange={(e) => setType(e.target.value as "PAYABLE" | "RECEIVABLE")}
@@ -229,7 +229,7 @@ export default function FinancePage() {
                 </select>
               </label>
               <label className="block">
-                <span className="mb-1 block text-xs text-muted">Categoria</span>
+                <span className="mb-1 block text-xs text-muted-foreground">Categoria</span>
                 <select
                   value={categoryId}
                   onChange={(e) => setCategoryId(e.target.value)}
@@ -244,7 +244,7 @@ export default function FinancePage() {
                 </select>
               </label>
               <label className="col-span-2 block">
-                <span className="mb-1 block text-xs text-muted">Descrição</span>
+                <span className="mb-1 block text-xs text-muted-foreground">Descrição</span>
                 <input
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -252,7 +252,7 @@ export default function FinancePage() {
                 />
               </label>
               <label className="block">
-                <span className="mb-1 block text-xs text-muted">Valor (R$)</span>
+                <span className="mb-1 block text-xs text-muted-foreground">Valor (R$)</span>
                 <input
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
@@ -261,7 +261,7 @@ export default function FinancePage() {
                 />
               </label>
               <label className="block">
-                <span className="mb-1 block text-xs text-muted">Vencimento</span>
+                <span className="mb-1 block text-xs text-muted-foreground">Vencimento</span>
                 <input
                   type="date"
                   value={dueDate}
@@ -315,7 +315,7 @@ export default function FinancePage() {
             key={v}
             onClick={() => setFilter(v as "" | "PAYABLE" | "RECEIVABLE")}
             className={`rounded-lg px-3 py-1.5 text-sm transition ${
-              filter === v ? "bg-primary text-primary-fg" : "border border-border text-muted hover:text-foreground"
+              filter === v ? "bg-primary text-primary-fg" : "border border-border text-muted-foreground hover:text-foreground"
             }`}
           >
             {l}
@@ -325,7 +325,7 @@ export default function FinancePage() {
 
       <div className="overflow-hidden rounded-xl border border-border">
         <table className="w-full text-sm">
-          <thead className="bg-surface text-left text-muted">
+          <thead className="bg-surface text-left text-muted-foreground">
             <tr>
               <th className="px-4 py-3 font-medium">Descrição</th>
               <th className="px-4 py-3 font-medium">Tipo</th>
@@ -341,11 +341,11 @@ export default function FinancePage() {
                 <td className="px-4 py-3">
                   {e.description}
                   {catName_(e.categoryId) && (
-                    <span className="ml-2 text-xs text-muted">· {catName_(e.categoryId)}</span>
+                    <span className="ml-2 text-xs text-muted-foreground">· {catName_(e.categoryId)}</span>
                   )}
                 </td>
-                <td className="px-4 py-3 text-muted">{TYPE_LABEL[e.type]}</td>
-                <td className="px-4 py-3 text-muted">{dateBR(e.dueDate)}</td>
+                <td className="px-4 py-3 text-muted-foreground">{TYPE_LABEL[e.type]}</td>
+                <td className="px-4 py-3 text-muted-foreground">{dateBR(e.dueDate)}</td>
                 <td className={`px-4 py-3 ${e.type === "PAYABLE" ? "text-danger" : "text-success"}`}>
                   {brl(e.amountCents)}
                 </td>
@@ -353,11 +353,11 @@ export default function FinancePage() {
                   {e.status === "PAID" ? (
                     <span className="text-success">Pago</span>
                   ) : e.status === "CANCELED" ? (
-                    <span className="text-muted line-through">Cancelado</span>
+                    <span className="text-muted-foreground line-through">Cancelado</span>
                   ) : isOverdue(e) ? (
                     <span className="text-warning">Atrasado</span>
                   ) : (
-                    <span className="text-muted">Pendente</span>
+                    <span className="text-muted-foreground">Pendente</span>
                   )}
                 </td>
                 <td className="px-4 py-3 text-right whitespace-nowrap">
@@ -371,7 +371,7 @@ export default function FinancePage() {
                       </button>
                       <button
                         onClick={() => cancel(e.id)}
-                        className="mr-3 text-xs text-muted hover:text-warning"
+                        className="mr-3 text-xs text-muted-foreground hover:text-warning"
                       >
                         cancelar
                       </button>
@@ -379,7 +379,7 @@ export default function FinancePage() {
                   )}
                   <button
                     onClick={() => remove(e.id)}
-                    className="text-xs text-muted hover:text-danger"
+                    className="text-xs text-muted-foreground hover:text-danger"
                   >
                     remover
                   </button>
@@ -388,7 +388,7 @@ export default function FinancePage() {
             ))}
             {entries.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted">
+                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                   Nenhum lançamento
                 </td>
               </tr>
@@ -402,15 +402,15 @@ export default function FinancePage() {
           <button
             onClick={() => load(page - 1)}
             disabled={page <= 1}
-            className="rounded-lg border border-border px-3 py-1.5 text-muted hover:text-foreground disabled:opacity-40"
+            className="rounded-lg border border-border px-3 py-1.5 text-muted-foreground hover:text-foreground disabled:opacity-40"
           >
             Anterior
           </button>
-          <span className="text-muted">Página {page} de {totalPages}</span>
+          <span className="text-muted-foreground">Página {page} de {totalPages}</span>
           <button
             onClick={() => load(page + 1)}
             disabled={page >= totalPages}
-            className="rounded-lg border border-border px-3 py-1.5 text-muted hover:text-foreground disabled:opacity-40"
+            className="rounded-lg border border-border px-3 py-1.5 text-muted-foreground hover:text-foreground disabled:opacity-40"
           >
             Próxima
           </button>
@@ -433,7 +433,7 @@ function Card({
     tone === "success" ? "text-success" : tone === "danger" ? "text-danger" : "";
   return (
     <div className="rounded-xl border border-border bg-surface p-5">
-      <div className="text-sm text-muted">{title}</div>
+      <div className="text-sm text-muted-foreground">{title}</div>
       <div className={`mt-2 text-xl font-semibold ${color}`}>{value}</div>
     </div>
   );

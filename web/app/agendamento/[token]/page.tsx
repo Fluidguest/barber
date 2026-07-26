@@ -77,7 +77,7 @@ export default function AppointmentPage() {
     return (
       <Centered>
         <h1 className="text-xl font-semibold">Link inválido ou expirado</h1>
-        <p className="mt-2 text-sm text-muted">
+        <p className="mt-2 text-sm text-muted-foreground">
           Entre em contato com a barbearia para confirmar seu horário.
         </p>
       </Centered>
@@ -87,7 +87,7 @@ export default function AppointmentPage() {
   if (!appt) {
     return (
       <Centered>
-        <p className="text-muted">Carregando...</p>
+        <p className="text-muted-foreground">Carregando...</p>
       </Centered>
     );
   }
@@ -103,13 +103,13 @@ export default function AppointmentPage() {
       ? "border-success/40 bg-success/10 text-success"
       : appt.status === "CANCELED"
         ? "border-danger/40 bg-danger/10 text-danger"
-        : "border-border bg-surface-2 text-muted";
+        : "border-border bg-surface-2 text-muted-foreground";
 
   return (
     <div className="mx-auto max-w-md p-4 sm:p-6">
       <header className="mb-5">
         <h1 className="text-2xl font-semibold">{appt.shopName}</h1>
-        <p className="text-sm text-muted">Seu agendamento</p>
+        <p className="text-sm text-muted-foreground">Seu agendamento</p>
       </header>
 
       <div className="rounded-2xl border border-border bg-surface p-5">
@@ -155,7 +155,7 @@ export default function AppointmentPage() {
         )}
 
         {appt.unitPhone && (
-          <p className="mt-4 text-center text-xs text-muted">
+          <p className="mt-4 text-center text-xs text-muted-foreground">
             Precisa remarcar? Fale com a barbearia: {appt.unitPhone}
           </p>
         )}
@@ -176,7 +176,7 @@ function Linha({
   if (!valor) return null;
   return (
     <div className="flex justify-between gap-3">
-      <dt className="text-muted">{rotulo}</dt>
+      <dt className="text-muted-foreground">{rotulo}</dt>
       <dd className={`text-right ${destaque ? "font-medium" : ""}`}>{valor}</dd>
     </div>
   );
