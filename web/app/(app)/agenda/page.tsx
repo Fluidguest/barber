@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
-import { brl, timeBR, todayRange, STATUS_LABEL, STATUS_COLOR } from "@/lib/format";
+import { brl, timeBR, STATUS_LABEL, STATUS_COLOR } from "@/lib/format";
 import { useRealtime } from "@/lib/socket";
 
 interface Appointment {
@@ -32,6 +32,23 @@ function defaultDateTime() {
 function toLocalInput(iso: string) {
   const d = new Date(iso);
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+/** Data de hoje em YYYY-MM-DD (hora local). */
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+/** Intervalo [início, fim] do dia informado (YYYY-MM-DD), em ISO. */
+function dayRange(dateStr: string) {
+  const from = new Date(`${dateStr}T00:00:00`).toISOString();
+  const to = new Date(`${dateStr}T23:59:59.999`).toISOString();
+  return { from, to };
+}
+/** Soma `delta` dias a uma data YYYY-MM-DD. */
+function shiftDate(dateStr: string, delta: number) {
+  const d = new Date(`${dateStr}T12:00:00`); // meio-dia evita borda de horário de verão
+  d.setDate(d.getDate() + delta);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 export default function AgendaPage() {
@@ -68,18 +85,31 @@ export default function AgendaPage() {
   const nameOf = (list: Named[], id: string) =>
     list.find((x) => x.id === id)?.name;
 
-  async function load() {
-    const { from, to } = todayRange();
+  // Data selecionada na agenda (padrão: hoje).
+  const [selectedDate, setSelectedDate] = useState(todayStr());
+
+  /** Carrega os agendamentos do dia selecionado. */
+  const loadAppts = useCallback(async (date: string) => {
+    const { from, to } = dayRange(date);
     try {
-      const [a, cs, bs, svc] = await Promise.all([
-        api<Appointment[]>(
+      setAppts(
+        await api<Appointment[]>(
           `/appointments?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
         ),
+      );
+    } catch (e) {
+      fail(e);
+    }
+  }, []);
+
+  /** Carrega as listas auxiliares (clientes, barbeiros, serviços) — uma vez. */
+  async function loadLists() {
+    try {
+      const [cs, bs, svc] = await Promise.all([
         api<Named[]>("/clients"),
         api<Named[]>("/barbers"),
         api<Named[]>("/services"),
       ]);
-      setAppts(a);
       setClients(cs);
       setBarbers(bs);
       setServices(svc);
@@ -88,24 +118,21 @@ export default function AgendaPage() {
     }
   }
   useEffect(() => {
-    load();
+    loadLists();
   }, []);
+  // Recarrega os agendamentos quando a data muda (e no primeiro render).
+  useEffect(() => {
+    loadAppts(selectedDate);
+  }, [selectedDate, loadAppts]);
 
-  // Realtime: recarrega os agendamentos do dia quando algo muda (novo horário,
+  // Realtime: recarrega o dia selecionado quando algo muda (novo horário,
   // confirmação ou cancelamento — inclusive vindos do agendamento online).
-  const reloadAppts = useCallback(async () => {
-    const { from, to } = todayRange();
-    try {
-      setAppts(
-        await api<Appointment[]>(
-          `/appointments?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
-        ),
-      );
-    } catch {
-      // silencioso: é só uma atualização de fundo
-    }
-  }, []);
+  const reloadAppts = useCallback(() => {
+    loadAppts(selectedDate);
+  }, [loadAppts, selectedDate]);
   useRealtime("appointment:changed", reloadAppts);
+
+  const isToday = selectedDate === todayStr();
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
@@ -131,7 +158,7 @@ export default function AgendaPage() {
       setClientId("");
       setBarberId("");
       setServiceId("");
-      await load();
+      await loadAppts(selectedDate);
     } catch (e) {
       fail(e);
     } finally {
@@ -147,7 +174,7 @@ export default function AgendaPage() {
         method: "PATCH",
         body: JSON.stringify({ status }),
       });
-      await load();
+      await loadAppts(selectedDate);
     } catch (e) {
       fail(e);
     }
@@ -162,7 +189,7 @@ export default function AgendaPage() {
         body: JSON.stringify({ startAt: new Date(reschedWhen).toISOString() }),
       });
       setReschedId(null);
-      await load();
+      await loadAppts(selectedDate);
     } catch (e) {
       fail(e);
     }
@@ -170,11 +197,46 @@ export default function AgendaPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Agenda de hoje</h1>
+          <h1 className="text-2xl font-semibold">
+            {isToday ? "Agenda de hoje" : "Agenda"}
+          </h1>
           <p className="text-sm text-muted-foreground">{appts.length} atendimentos</p>
         </div>
+
+        {/* Seletor de data */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSelectedDate(shiftDate(selectedDate, -1))}
+            title="Dia anterior"
+            className="rounded-lg border border-border px-2.5 py-2 text-sm text-muted-foreground hover:border-primary hover:text-foreground"
+          >
+            ‹
+          </button>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value || todayStr())}
+            className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm outline-none focus:border-primary"
+          />
+          <button
+            onClick={() => setSelectedDate(shiftDate(selectedDate, 1))}
+            title="Próximo dia"
+            className="rounded-lg border border-border px-2.5 py-2 text-sm text-muted-foreground hover:border-primary hover:text-foreground"
+          >
+            ›
+          </button>
+          {!isToday && (
+            <button
+              onClick={() => setSelectedDate(todayStr())}
+              className="rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:border-primary hover:text-foreground"
+            >
+              Hoje
+            </button>
+          )}
+        </div>
+
         <button
           onClick={() => setShowForm((v) => !v)}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-fg hover:opacity-90"

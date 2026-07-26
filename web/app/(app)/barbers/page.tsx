@@ -36,6 +36,26 @@ const emptyForm = {
 };
 type Form = typeof emptyForm;
 
+/** Dias da semana (0=Dom ... 6=Sáb), na ordem de exibição. */
+const WEEK = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+interface DayRow {
+  weekday: number;
+  label: string;
+  enabled: boolean;
+  start: string;
+  end: string;
+}
+/** Jornada padrão ao abrir um barbeiro sem jornada: Seg–Sex 09:00–18:00. */
+function defaultDays(): DayRow[] {
+  return WEEK.map((label, wd) => ({
+    weekday: wd,
+    label,
+    enabled: wd >= 1 && wd <= 5,
+    start: "09:00",
+    end: "18:00",
+  }));
+}
+
 export default function BarbersPage() {
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -47,9 +67,10 @@ export default function BarbersPage() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // jornada rápida
-  const [start, setStart] = useState("09:00");
-  const [end, setEnd] = useState("18:00");
+  // Editor de jornada (por dia da semana)
+  const [scheduleBarber, setScheduleBarber] = useState<{ id: string; name: string } | null>(null);
+  const [days, setDays] = useState<DayRow[]>(defaultDays());
+  const [savingSchedule, setSavingSchedule] = useState(false);
 
   const fail = (e: unknown) =>
     setError(e instanceof ApiError ? e.message : "Erro inesperado");
@@ -142,16 +163,63 @@ export default function BarbersPage() {
     }
   }
 
-  async function setSchedule(id: string) {
+  /** Abre o editor de jornada carregando a jornada atual do barbeiro. */
+  async function openSchedule(b: Barber) {
     setError("");
     try {
-      const items = [1, 2, 3, 4, 5].map((weekday) => ({
-        weekday, startTime: start, endTime: end,
-      }));
-      await api(`/barbers/${id}/schedule`, { method: "PUT", body: JSON.stringify({ items }) });
-      window.alert(`Jornada Seg–Sex ${start}–${end} definida.`);
+      const detail = await api<{
+        schedules?: { weekday: number; startTime: string; endTime: string }[];
+      }>(`/barbers/${b.id}`);
+      const existing = detail.schedules ?? [];
+      setDays(
+        WEEK.map((label, wd) => {
+          const s = existing.find((e) => e.weekday === wd);
+          return {
+            weekday: wd,
+            label,
+            enabled: !!s,
+            start: s?.startTime ?? "09:00",
+            end: s?.endTime ?? "18:00",
+          };
+        }),
+      );
+      setScheduleBarber({ id: b.id, name: b.name });
     } catch (e) {
       fail(e);
+    }
+  }
+
+  function updateDay(weekday: number, patch: Partial<DayRow>) {
+    setDays((prev) => prev.map((d) => (d.weekday === weekday ? { ...d, ...patch } : d)));
+  }
+
+  /** Salva a jornada: envia só os dias marcados (com horário início < fim). */
+  async function saveSchedule() {
+    if (!scheduleBarber) return;
+    const enabled = days.filter((d) => d.enabled);
+    for (const d of enabled) {
+      if (d.start >= d.end) {
+        setError(`${d.label}: o horário de início deve ser antes do fim.`);
+        return;
+      }
+    }
+    setSavingSchedule(true);
+    setError("");
+    try {
+      const items = enabled.map((d) => ({
+        weekday: d.weekday,
+        startTime: d.start,
+        endTime: d.end,
+      }));
+      await api(`/barbers/${scheduleBarber.id}/schedule`, {
+        method: "PUT",
+        body: JSON.stringify({ items }),
+      });
+      setScheduleBarber(null);
+    } catch (e) {
+      fail(e);
+    } finally {
+      setSavingSchedule(false);
     }
   }
 
@@ -263,16 +331,6 @@ export default function BarbersPage() {
         </div>
       )}
 
-      <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-border bg-surface p-4">
-        <span className="text-sm text-muted-foreground">Jornada rápida (Seg–Sex):</span>
-        <input value={start} onChange={(e) => setStart(e.target.value)}
-          className="w-24 rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm outline-none" />
-        <span className="text-muted-foreground">até</span>
-        <input value={end} onChange={(e) => setEnd(e.target.value)}
-          className="w-24 rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm outline-none" />
-        <span className="text-xs text-muted-foreground">(aplique em um barbeiro na lista)</span>
-      </div>
-
       <div className="flex flex-col gap-3">
         {barbers.map((b) => (
           <div key={b.id} className="flex items-center gap-4 rounded-xl border border-border bg-surface p-4">
@@ -305,7 +363,7 @@ export default function BarbersPage() {
               className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:border-primary hover:text-foreground">
               editar
             </button>
-            <button onClick={() => setSchedule(b.id)}
+            <button onClick={() => openSchedule(b)}
               className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:border-primary hover:text-foreground">
               jornada
             </button>
@@ -321,6 +379,65 @@ export default function BarbersPage() {
           </div>
         )}
       </div>
+
+      {/* Editor de jornada por dia da semana */}
+      {scheduleBarber && (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-5 shadow-xl">
+            <div className="mb-1 text-lg font-semibold">Jornada de {scheduleBarber.name}</div>
+            <p className="mb-4 text-xs text-muted-foreground">
+              Marque os dias que ele atende e defina o horário de cada um.
+            </p>
+
+            <div className="flex flex-col gap-2">
+              {days.map((d) => (
+                <div key={d.weekday} className="flex items-center gap-3">
+                  <label className="flex w-28 items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={d.enabled}
+                      onChange={(e) => updateDay(d.weekday, { enabled: e.target.checked })}
+                      className="h-4 w-4 accent-primary"
+                    />
+                    {d.label}
+                  </label>
+                  <input
+                    type="time"
+                    value={d.start}
+                    disabled={!d.enabled}
+                    onChange={(e) => updateDay(d.weekday, { start: e.target.value })}
+                    className="rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm outline-none focus:border-primary disabled:opacity-40"
+                  />
+                  <span className="text-xs text-muted-foreground">até</span>
+                  <input
+                    type="time"
+                    value={d.end}
+                    disabled={!d.enabled}
+                    onChange={(e) => updateDay(d.weekday, { end: e.target.value })}
+                    className="rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm outline-none focus:border-primary disabled:opacity-40"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setScheduleBarber(null)}
+                className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:border-primary"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={saveSchedule}
+                disabled={savingSchedule}
+                className="rounded-lg bg-primary px-5 py-2 text-sm font-medium text-primary-fg hover:opacity-90 disabled:opacity-50"
+              >
+                {savingSchedule ? "Salvando..." : "Salvar jornada"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
