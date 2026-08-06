@@ -24,7 +24,17 @@ BEGIN
   END IF;
 END $$;
 
-ALTER ROLE app_role NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+-- Atributos seguros. Já são o PADRÃO de um role recém-criado, então este ALTER
+-- é só uma reafirmação defensiva. Em Postgres gerenciado (ex.: Supabase) o
+-- superusuário não é exposto e este ALTER falha com "permission denied to alter
+-- role" — como os atributos já estão corretos por padrão, engolimos o erro em
+-- vez de abortar o script inteiro (que deixaria a RLS sem aplicar).
+DO $$
+BEGIN
+  ALTER ROLE app_role NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+EXCEPTION WHEN insufficient_privilege THEN
+  RAISE NOTICE 'Sem permissão para ALTER ROLE (Postgres gerenciado); atributos já são o padrão seguro.';
+END $$;
 GRANT USAGE ON SCHEMA public TO app_role;
 
 -- 1) Função helper: tenant corrente da sessão (vazio/ausente -> NULL).
@@ -60,7 +70,24 @@ BEGIN
   END LOOP;
 END $$;
 
--- 3) Catálogo GLOBAL (plans): sem tenant_id, sem RLS, somente leitura para o app.
+-- 3) Tabelas GLOBAIS (sem tenant_id): NÃO devem ter RLS. Em Postgres gerenciado
+--    (ex.: Supabase) a RLS vem LIGADA por padrão em todo o schema `public`, o que
+--    com FORCE deixaria o app enxergar 0 linhas (login não acha o tenant, planos
+--    somem). Desligamos explicitamente — idempotente e inofensivo onde já está off.
+DO $$
+DECLARE
+  g text;
+BEGIN
+  FOREACH g IN ARRAY ARRAY['plans','tenants','platform_admins','_prisma_migrations']
+  LOOP
+    IF EXISTS (SELECT 1 FROM information_schema.tables
+               WHERE table_schema='public' AND table_name=g) THEN
+      EXECUTE format('ALTER TABLE %I DISABLE ROW LEVEL SECURITY;', g);
+    END IF;
+  END LOOP;
+END $$;
+
+-- 3a) Catálogo GLOBAL (plans): somente leitura para o app.
 GRANT SELECT ON plans TO app_role;
 
 -- 3b) Tabela raiz `tenants` (não tem tenant_id, pois É o tenant): o app precisa

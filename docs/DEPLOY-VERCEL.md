@@ -1,4 +1,4 @@
-# Deploy: Vercel (frontend) + Render (backend) + Neon (banco)
+# Deploy: Vercel (frontend) + Render (backend) + Supabase (banco)
 
 Guia prático de produção. A divisão existe porque o **backend NestJS é um servidor
 persistente** (WebSocket do realtime + agendador cron) — isso não roda em funções
@@ -6,43 +6,64 @@ serverless. Então:
 
 ```
 Frontend (web/, Next.js)  →  Vercel
-Backend  (NestJS)         →  Render        (servidor sempre ligado)
-Banco    (Postgres)       →  Neon          (Postgres gerenciado)
+Backend  (NestJS)         →  Render        (Web Service)
+Banco    (Postgres)       →  Supabase      (Postgres gerenciado)
 Redis    (opcional)       →  Upstash       (rate limit multi-instância)
 Storage  (opcional)       →  Cloudflare R2 (arquivos de mídia)
 ```
 
-> Render/Neon/Upstash/R2 podem ser trocados por equivalentes (Railway, Supabase,
-> Fly.io) — o que importa são as **variáveis de ambiente** de cada um.
+> Podem ser trocados por equivalentes (Railway, Neon, Fly.io) — o que importa são
+> as **variáveis de ambiente** de cada um.
+
+> ⚠️ **Render plano grátis hiberna após ~15 min sem acesso.** Efeitos: o primeiro
+> acesso depois disso demora ~30–60s, e o **agendador de lembretes pode não
+> disparar** enquanto dorme. Para testar, tudo bem. Para clientes reais, use o
+> plano pago da Render (~US$7/mês) ou o Railway (sempre ligado). Paliativo no
+> grátis: um "pinger" externo (UptimeRobot/cron-job.org) batendo em
+> `/api/health` a cada 10 min mantém acordado.
 
 ---
 
 ## Ordem geral
 
-1. Banco no Neon → 2. Backend no Render → 3. Frontend no Vercel → 4. Ligar as pontas.
+1. Banco no Supabase → 2. Backend no Render → 3. Frontend no Vercel → 4. Ligar as pontas.
 
 ---
 
-## 1. Banco de dados (Neon)
+## 1. Banco de dados (Supabase)
 
-1. Crie um projeto em <https://neon.tech> → anote a **connection string** (algo
-   como `postgresql://OWNER:SENHA@ep-xxx.neon.tech/neondb?sslmode=require`).
-   Essa é a conexão **dono** → vira o `DIRECT_URL`.
-2. Provisione o schema + segurança. **No seu PC**, apontando para o Neon:
+1. Em <https://supabase.com> → **New project**. Defina uma **senha de banco
+   forte** (guarde!) e a região (South America / São Paulo).
+2. Pegue a connection string em **Connect** (botão no topo) → **Session pooler**.
+   Use SEMPRE o **Session pooler** (host `aws-0-<região>.pooler.supabase.com`,
+   porta `5432`), não o "Direct connection": o host direto `db.<ref>.supabase.co`
+   é **só IPv6** e não resolve na maioria das redes/PCs IPv4. O usuário no pooler
+   tem o formato `postgres.<ref>` (o ref do projeto vai embutido no usuário).
+   - (A "Transaction pooler" na 6543 é para serverless — não usamos, pois o
+     backend na Render é um servidor persistente.)
+3. Provisione o schema + segurança. **No seu PC**, apontando para o Supabase
+   (troque `SENHA` e `<ref>`/`<região>` pelos do seu projeto):
    ```bash
-   # use a connection string do Neon como DIRECT_URL
-   export DIRECT_URL="postgresql://OWNER:SENHA@ep-xxx.neon.tech/neondb?sslmode=require"
+   export DIRECT_URL="postgresql://postgres.<ref>:SENHA@aws-0-<região>.pooler.supabase.com:5432/postgres?sslmode=require"
    npm run db:setup:prod   # migrate deploy + RLS + constraints + generate
    ```
-3. Defina a senha do `app_role` (a RLS o cria) e monte o `DATABASE_URL`:
+   > O `db:rls:psql` já é seguro no Supabase: engole o `ALTER ROLE` que exige
+   > superusuário (atributos já são o padrão) e desliga a RLS que o Supabase
+   > liga por padrão nas tabelas globais (`plans`, `tenants`, `platform_admins`).
+4. Defina a senha do `app_role` (a RLS o cria) e monte o `DATABASE_URL`:
    ```bash
-   psql "$DIRECT_URL" -c "ALTER ROLE app_role PASSWORD 'UMA_SENHA_FORTE';"
+   psql "$DIRECT_URL" -c "ALTER ROLE app_role PASSWORD 'UMA_SENHA_FORTE_DO_APP';"
    ```
-   O **`DATABASE_URL`** (conexão de runtime, sofre RLS) fica:
-   `postgresql://app_role:UMA_SENHA_FORTE@ep-xxx.neon.tech/neondb?sslmode=require`
+   O **`DATABASE_URL`** (runtime, sofre RLS) usa o mesmo host/pooler, trocando o
+   usuário para `app_role.<ref>`:
+   `postgresql://app_role.<ref>:UMA_SENHA_FORTE_DO_APP@aws-0-<região>.pooler.supabase.com:5432/postgres?sslmode=require`
 
-> Você terá **duas** URLs do mesmo banco: `DIRECT_URL` (owner, migrations) e
-> `DATABASE_URL` (app_role, runtime). Ver [DEPLOY.md](DEPLOY.md).
+> Você terá **duas** URLs do mesmo banco: `DIRECT_URL` (usuário `postgres`, dono —
+> migrations/RLS) e `DATABASE_URL` (usuário `app_role`, runtime). Ver [DEPLOY.md](DEPLOY.md).
+
+> No Supabase, `psql` você roda do seu PC (a connection string do passo 2). Se não
+> tiver `psql` instalado, dá para rodar o `ALTER ROLE` pelo **SQL Editor** do
+> painel do Supabase.
 
 ---
 
@@ -60,7 +81,7 @@ Storage  (opcional)       →  Cloudflare R2 (arquivos de mídia)
    |---|---|
    | `NODE_ENV` | `production` |
    | `DATABASE_URL` | a URL do **app_role** (passo 1.3) |
-   | `DIRECT_URL` | a URL **owner** do Neon (passo 1.1) |
+   | `DIRECT_URL` | a URL **owner** (`postgres.<ref>`) do Supabase (passo 1.3) |
    | `JWT_SECRET` | `openssl rand -base64 48` |
    | `ENCRYPTION_KEY` | **a chave forte que você guardou no cofre** (nunca troque) |
    | `CORS_ORIGIN` | a URL do frontend na Vercel (passo 3) — ex.: `https://barber.vercel.app` |
@@ -139,5 +160,7 @@ guarda suas variáveis de forma segura.
 
 - **Código:** `git push` → Render e Vercel reconstroem sozinhas.
 - **Mudou o schema (`schema.prisma`):** rode `npm run db:deploy` apontando para o
-  Neon (owner) **antes** do backend novo subir; se criou tabela nova, reaplique a
-  RLS (`db:rls:psql`). Ver [prisma/migrations/README.md](../prisma/migrations/README.md).
+  Supabase (`DIRECT_URL`, owner) **antes** do backend novo subir; se criou tabela
+  nova, reaplique a RLS (`db:rls:psql`) — no Supabase, toda tabela nova nasce com
+  RLS ligada, então reaplicar é obrigatório (o script protege as com `tenant_id` e
+  desliga as globais). Ver [prisma/migrations/README.md](../prisma/migrations/README.md).

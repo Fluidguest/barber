@@ -158,7 +158,11 @@ export default function AgendaPage() {
       setClientId("");
       setBarberId("");
       setServiceId("");
-      await loadAppts(selectedDate);
+      // Vai para o dia do agendamento criado (mesmo que diferente do que estava
+      // sendo visto) e recarrega — assim ele sempre aparece.
+      const apptDate = when.slice(0, 10);
+      setSelectedDate(apptDate);
+      await loadAppts(apptDate);
     } catch (e) {
       fail(e);
     } finally {
@@ -238,7 +242,12 @@ export default function AgendaPage() {
         </div>
 
         <button
-          onClick={() => setShowForm((v) => !v)}
+          onClick={() => {
+            // Ao abrir, o novo agendamento nasce na DATA SELECIONADA (10:00),
+            // não em "hoje" — assim ele cai no dia que você está vendo.
+            if (!showForm) setWhen(`${selectedDate}T10:00`);
+            setShowForm((v) => !v);
+          }}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-fg hover:opacity-90"
         >
           {showForm ? "Fechar" : "Novo agendamento"}
