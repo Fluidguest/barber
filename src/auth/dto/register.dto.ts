@@ -5,6 +5,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { SLUG_MAX, SLUG_MESSAGE, SLUG_MIN, SLUG_REGEX } from './slug';
 
 export class RegisterDto {
   /** Nome da barbearia (tenant). */
@@ -15,11 +16,9 @@ export class RegisterDto {
 
   /** Slug único da barbearia (subdomínio). Ex.: "barbearia-do-ze". */
   @IsString()
-  @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
-    message: 'slug deve ser minúsculo, sem espaços (ex.: barbearia-do-ze)',
-  })
-  @MinLength(2)
-  @MaxLength(60)
+  @Matches(SLUG_REGEX, { message: SLUG_MESSAGE })
+  @MinLength(SLUG_MIN)
+  @MaxLength(SLUG_MAX)
   slug: string;
 
   /** Nome do administrador. */

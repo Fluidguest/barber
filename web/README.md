@@ -16,7 +16,8 @@ npm run dev -- -p 3100     # http://localhost:3100
 > a 3100. A URL da API vem de `NEXT_PUBLIC_API_URL` em `.env.local`
 > (default `http://localhost:3333/api`).
 
-**Login demo:** `demo` / `admin@demo.com` / `demo1234`
+> As credenciais de acesso são criadas pelo seed (`npm run db:seed`) ou pelo
+> cadastro. Não versione logins reais aqui.
 
 ## Estrutura
 

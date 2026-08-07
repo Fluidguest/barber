@@ -1,20 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { login, ApiError } from "@/lib/api";
+import { login, ApiError, API_BASE } from "@/lib/api";
 import { LogoStacked } from "@/components/layout/Logo";
+
+type Company = { slug: string; name: string };
 
 export default function LoginPage() {
   const router = useRouter();
-  const [slug, setSlug] = useState("demo");
-  const [email, setEmail] = useState("admin@demo.com");
-  const [password, setPassword] = useState("demo1234");
+  const [slug, setSlug] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [needs2fa, setNeeds2fa] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Lista de barbearias para o seletor. Enquanto carrega, mostramos o campo de
+  // digitação como fallback — se a API não responder, ainda dá para logar.
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companiesLoaded, setCompaniesLoaded] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    fetch(`${API_BASE}/auth/companies/public`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list: Company[]) => {
+        if (!alive) return;
+        setCompanies(Array.isArray(list) ? list : []);
+      })
+      .catch(() => {
+        /* fallback para digitação */
+      })
+      .finally(() => alive && setCompaniesLoaded(true));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -37,6 +61,10 @@ export default function LoginPage() {
     }
   }
 
+  // Só usamos o seletor quando a lista carregou e veio com pelo menos uma
+  // barbearia; caso contrário, mantém a digitação do slug.
+  const useSelect = companiesLoaded && companies.length > 0;
+
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
       <form
@@ -48,7 +76,29 @@ export default function LoginPage() {
           <p className="mt-3 text-sm text-muted-foreground">Acesse sua barbearia</p>
         </div>
 
-        <Field label="Barbearia (slug)" value={slug} onChange={setSlug} />
+        {useSelect ? (
+          <label className="mb-4 block">
+            <span className="mb-1.5 block text-sm text-muted-foreground">Barbearia</span>
+            <select
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+              className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 outline-none focus:border-primary"
+              required
+            >
+              <option value="" disabled>
+                Selecione a barbearia
+              </option>
+              {companies.map((c) => (
+                <option key={c.slug} value={c.slug}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <Field label="Barbearia" value={slug} onChange={setSlug} />
+        )}
+
         <Field label="E-mail" type="email" value={email} onChange={setEmail} />
         <Field
           label="Senha"
@@ -85,8 +135,11 @@ export default function LoginPage() {
           </Link>
         </p>
 
-        <p className="mt-3 text-center text-xs text-muted-foreground">
-          Demo: demo / admin@demo.com / demo1234
+        <p className="mt-3 text-center text-sm text-muted-foreground">
+          Não tem conta?{" "}
+          <Link href="/register" className="text-primary hover:underline">
+            Cadastre sua barbearia
+          </Link>
         </p>
       </form>
     </div>

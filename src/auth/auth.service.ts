@@ -257,6 +257,19 @@ export class AuthService {
    * Cruza tenants pela conexão de sistema (é uma leitura cross-tenant legítima),
    * agrupando por `ownerAccountId` — nunca por e-mail.
    */
+  /**
+   * Lista pública (sem login) das barbearias, para alimentar o seletor da tela
+   * de login. Retorna apenas `slug` + `name` — nada sensível. Exclui as
+   * removidas e as canceladas (essas não devem mais aparecer para escolha).
+   */
+  async listPublicCompanies() {
+    return this.system.tenant.findMany({
+      where: { deletedAt: null, status: { not: 'CANCELED' } },
+      select: { slug: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   async listCompanies(user: AuthUser) {
     const me = await this.system.user.findUnique({
       where: { id: user.userId },

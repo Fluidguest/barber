@@ -16,6 +16,7 @@ import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
+import { SLUG_MAX, SLUG_MESSAGE, SLUG_MIN, SLUG_REGEX } from './dto/slug';
 import { LoginDto } from './dto/login.dto';
 import { AuthUser, JwtAuthGuard } from './jwt-auth.guard';
 import { CurrentUser } from './current-user.decorator';
@@ -47,9 +48,10 @@ class CreateCompanyDto {
   @MaxLength(120)
   barbershopName: string;
 
-  @Matches(/^[a-z0-9-]{3,40}$/, {
-    message: 'slug deve ter 3-40 caracteres: letras minúsculas, números e hífen',
-  })
+  @IsString()
+  @Matches(SLUG_REGEX, { message: SLUG_MESSAGE })
+  @MinLength(SLUG_MIN)
+  @MaxLength(SLUG_MAX)
   slug: string;
 }
 
@@ -90,6 +92,9 @@ class ResetPasswordDto {
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
+  // Provisiona tenant+unit+user a cada chamada e é público — limite baixo,
+  // igual ao de criar empresa, para evitar cadastro em massa abusivo.
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('register')
   async register(
     @Body() dto: RegisterDto,
@@ -161,6 +166,17 @@ export class AuthController {
   @Get('me')
   me(@CurrentUser() user: AuthUser) {
     return this.auth.me(user);
+  }
+
+  /**
+   * Lista pública das barbearias ativas — alimenta o seletor da tela de login
+   * (sem autenticação). Retorna apenas slug + nome. Throttle generoso: é só
+   * leitura de catálogo, mas evita varredura abusiva.
+   */
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Get('companies/public')
+  publicCompanies() {
+    return this.auth.listPublicCompanies();
   }
 
   // ---- Multiempresa (Controle Geral) ----

@@ -1,14 +1,38 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { API_BASE } from "@/lib/api";
+
+type Company = { slug: string; name: string };
 
 export default function ForgotPasswordPage() {
   const [slug, setSlug] = useState("");
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Mesmo seletor de barbearia do login: o usuário escolhe pelo nome, não
+  // precisa saber o slug. Fallback para digitação se a lista não carregar.
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companiesLoaded, setCompaniesLoaded] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    fetch(`${API_BASE}/auth/companies/public`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list: Company[]) => {
+        if (!alive) return;
+        setCompanies(Array.isArray(list) ? list : []);
+      })
+      .catch(() => {
+        /* fallback para digitação */
+      })
+      .finally(() => alive && setCompaniesLoaded(true));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -27,6 +51,8 @@ export default function ForgotPasswordPage() {
       setLoading(false);
     }
   }
+
+  const useSelect = companiesLoaded && companies.length > 0;
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
@@ -53,7 +79,28 @@ export default function ForgotPasswordPage() {
           </>
         ) : (
           <form onSubmit={submit}>
-            <Field label="Barbearia (slug)" value={slug} onChange={setSlug} />
+            {useSelect ? (
+              <label className="mb-4 block">
+                <span className="mb-1.5 block text-sm text-muted-foreground">Barbearia</span>
+                <select
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 outline-none focus:border-primary"
+                  required
+                >
+                  <option value="" disabled>
+                    Selecione a barbearia
+                  </option>
+                  {companies.map((c) => (
+                    <option key={c.slug} value={c.slug}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <Field label="Barbearia" value={slug} onChange={setSlug} />
+            )}
             <Field
               label="E-mail"
               type="email"
