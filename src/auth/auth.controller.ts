@@ -42,6 +42,15 @@ class TotpCodeDto {
   code: string;
 }
 
+class LoginCompaniesDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @IsNotEmpty()
+  password: string;
+}
+
 class CreateCompanyDto {
   @IsString()
   @MinLength(2)
@@ -103,6 +112,17 @@ export class AuthController {
     const session = await this.auth.register(dto);
     setRefreshCookie(res, session.refreshToken);
     return session;
+  }
+
+  /**
+   * Etapa 1 do login sem slug: e-mail + senha -> lista de barbearias onde a
+   * credencial confere (o front entra direto se houver 1, ou mostra seletor).
+   * Mesmo limite do login (anti brute-force); lista vazia = credencial inválida.
+   */
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('login/companies')
+  loginCompanies(@Body() dto: LoginCompaniesDto) {
+    return this.auth.companiesForLogin(dto.email, dto.password);
   }
 
   // Limite rígido: no máx. 10 tentativas/min por IP (anti brute-force).

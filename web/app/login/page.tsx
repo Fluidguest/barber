@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { login, ApiError, API_BASE } from "@/lib/api";
@@ -10,7 +10,6 @@ type Company = { slug: string; name: string };
 
 export default function LoginPage() {
   const router = useRouter();
-  const [slug, setSlug] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
@@ -18,38 +17,21 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Lista de barbearias para o seletor. Enquanto carrega, mostramos o campo de
-  // digitação como fallback — se a API não responder, ainda dá para logar.
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [companiesLoaded, setCompaniesLoaded] = useState(false);
+  // Etapa 2: barbearias onde a credencial confere. null = ainda na etapa 1.
+  const [companies, setCompanies] = useState<Company[] | null>(null);
+  const [chosenSlug, setChosenSlug] = useState("");
 
-  useEffect(() => {
-    let alive = true;
-    fetch(`${API_BASE}/auth/companies/public`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((list: Company[]) => {
-        if (!alive) return;
-        setCompanies(Array.isArray(list) ? list : []);
-      })
-      .catch(() => {
-        /* fallback para digitação */
-      })
-      .finally(() => alive && setCompaniesLoaded(true));
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  // Autentica de fato numa barbearia (etapa final). Reaproveita o login por slug,
+  // incluindo o fluxo de 2FA.
+  async function doLogin(slug: string, twofaCode = code) {
+    setChosenSlug(slug);
     setError("");
     setLoading(true);
     try {
-      await login(slug, email, password, code);
+      await login(slug, email, password, twofaCode);
       router.replace("/home");
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : "Falha ao entrar";
-      // Quando o backend pede o 2FA, revela o campo de código.
       if (/2fa|autentica/i.test(msg)) {
         setNeeds2fa(true);
         setError(needs2fa ? "Código 2FA inválido" : "Informe o código do seu app autenticador");
@@ -61,59 +43,49 @@ export default function LoginPage() {
     }
   }
 
-  // Só usamos o seletor quando a lista carregou e veio com pelo menos uma
-  // barbearia; caso contrário, mantém a digitação do slug.
-  const useSelect = companiesLoaded && companies.length > 0;
+  // Etapa 1: e-mail + senha -> descobre as barbearias da credencial.
+  async function submitCreds(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/auth/login/companies`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const list: Company[] = res.ok ? await res.json() : [];
+      if (!Array.isArray(list) || list.length === 0) {
+        setError("E-mail ou senha inválidos");
+        setLoading(false);
+        return;
+      }
+      if (list.length === 1) {
+        await doLogin(list[0].slug); // uma só barbearia: entra direto
+        return;
+      }
+      setCompanies(list); // várias: mostra o seletor
+      setLoading(false);
+    } catch {
+      setError("Falha ao entrar. Tente novamente.");
+      setLoading(false);
+    }
+  }
+
+  function voltar() {
+    setCompanies(null);
+    setNeeds2fa(false);
+    setCode("");
+    setError("");
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
-      <form
-        onSubmit={submit}
-        className="w-full max-w-sm rounded-2xl border border-border bg-surface p-8 shadow-2xl"
-      >
+      <div className="w-full max-w-sm rounded-2xl border border-border bg-surface p-8 shadow-2xl">
         <div className="mb-6 flex flex-col items-center">
           <LogoStacked />
           <p className="mt-3 text-sm text-muted-foreground">Acesse sua barbearia</p>
         </div>
-
-        {useSelect ? (
-          <label className="mb-4 block">
-            <span className="mb-1.5 block text-sm text-muted-foreground">Barbearia</span>
-            <select
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 outline-none focus:border-primary"
-              required
-            >
-              <option value="" disabled>
-                Selecione a barbearia
-              </option>
-              {companies.map((c) => (
-                <option key={c.slug} value={c.slug}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : (
-          <Field label="Barbearia" value={slug} onChange={setSlug} />
-        )}
-
-        <Field label="E-mail" type="email" value={email} onChange={setEmail} />
-        <Field
-          label="Senha"
-          type="password"
-          value={password}
-          onChange={setPassword}
-        />
-
-        {needs2fa && (
-          <Field
-            label="Código 2FA (app autenticador)"
-            value={code}
-            onChange={setCode}
-          />
-        )}
 
         {error && (
           <div className="mb-4 rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
@@ -121,28 +93,80 @@ export default function LoginPage() {
           </div>
         )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="btn-gold w-full rounded-lg py-2.5 font-semibold disabled:cursor-not-allowed"
-        >
-          {loading ? "Entrando..." : "Entrar"}
-        </button>
+        {needs2fa ? (
+          // Etapa 2FA para a barbearia já escolhida.
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void doLogin(chosenSlug);
+            }}
+          >
+            <Field
+              label="Código 2FA (app autenticador)"
+              value={code}
+              onChange={setCode}
+            />
+            <button type="submit" disabled={loading} className="btn-gold w-full rounded-lg py-2.5 font-semibold disabled:cursor-not-allowed">
+              {loading ? "Entrando..." : "Confirmar"}
+            </button>
+            <BackLink onClick={voltar} />
+          </form>
+        ) : companies ? (
+          // Seletor de barbearia (a credencial vale para mais de uma).
+          <div>
+            <p className="mb-3 text-sm text-muted-foreground">
+              Você tem acesso a mais de uma barbearia. Escolha em qual entrar:
+            </p>
+            <div className="space-y-2">
+              {companies.map((c) => (
+                <button
+                  key={c.slug}
+                  type="button"
+                  disabled={loading}
+                  onClick={() => void doLogin(c.slug)}
+                  className="w-full rounded-lg border border-border bg-surface-2 px-4 py-3 text-left font-medium transition hover:border-primary disabled:opacity-50"
+                >
+                  {c.name}
+                </button>
+              ))}
+            </div>
+            <BackLink onClick={voltar} />
+          </div>
+        ) : (
+          // Etapa 1: credenciais (sem barbearia).
+          <form onSubmit={submitCreds}>
+            <Field label="E-mail" type="email" value={email} onChange={setEmail} />
+            <Field label="Senha" type="password" value={password} onChange={setPassword} />
 
-        <p className="mt-4 text-center text-sm">
-          <Link href="/forgot-password" className="text-muted-foreground hover:underline">
-            Esqueci minha senha
-          </Link>
-        </p>
+            <button type="submit" disabled={loading} className="btn-gold w-full rounded-lg py-2.5 font-semibold disabled:cursor-not-allowed">
+              {loading ? "Entrando..." : "Entrar"}
+            </button>
 
-        <p className="mt-3 text-center text-sm text-muted-foreground">
-          Não tem conta?{" "}
-          <Link href="/register" className="text-primary hover:underline">
-            Cadastre sua barbearia
-          </Link>
-        </p>
-      </form>
+            <p className="mt-4 text-center text-sm">
+              <Link href="/forgot-password" className="text-muted-foreground hover:underline">
+                Esqueci minha senha
+              </Link>
+            </p>
+            <p className="mt-3 text-center text-sm text-muted-foreground">
+              Não tem conta?{" "}
+              <Link href="/register" className="text-primary hover:underline">
+                Cadastre sua barbearia
+              </Link>
+            </p>
+          </form>
+        )}
+      </div>
     </div>
+  );
+}
+
+function BackLink({ onClick }: { onClick: () => void }) {
+  return (
+    <p className="mt-4 text-center text-sm">
+      <button type="button" onClick={onClick} className="text-muted-foreground hover:underline">
+        Voltar
+      </button>
+    </p>
   );
 }
 

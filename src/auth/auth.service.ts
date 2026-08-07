@@ -78,6 +78,43 @@ export class AuthService {
     });
   }
 
+  /**
+   * Etapa 1 do login sem slug: dado e-mail + senha, descobre em QUAIS barbearias
+   * essa credencial é válida. Verifica a senha (argon2) em cada usuário com aquele
+   * e-mail e devolve as barbearias onde confere. O frontend então: entra direto se
+   * houver 1, ou mostra um seletor se houver várias. Lista vazia = credencial
+   * inválida (não revela se o e-mail existe — mesmo resultado nos dois casos).
+   */
+  async companiesForLogin(
+    email: string,
+    password: string,
+  ): Promise<{ slug: string; name: string }[]> {
+    const users = await this.system.user.findMany({
+      where: {
+        email,
+        isActive: true,
+        deletedAt: null,
+        tenant: { deletedAt: null, status: { not: 'CANCELED' } },
+      },
+      select: { passwordHash: true, tenant: { select: { slug: true, name: true } } },
+    });
+
+    const seen = new Set<string>();
+    const matches: { slug: string; name: string }[] = [];
+    for (const u of users) {
+      const ok = await argon2.verify(u.passwordHash, password).catch(() => false);
+      if (ok && !seen.has(u.tenant.slug)) {
+        seen.add(u.tenant.slug);
+        matches.push(u.tenant);
+      }
+    }
+    // Equaliza um pouco o tempo quando não há nenhum usuário (anti-enumeração).
+    if (users.length === 0) {
+      await argon2.verify(DUMMY_HASH, password).catch(() => false);
+    }
+    return matches.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
   async refresh(refreshToken: string): Promise<TokenPair & { tenantId: string }> {
     const tenantId = refreshToken.split('.')[0];
     if (!tenantId) throw new UnauthorizedException('Refresh inválido');
