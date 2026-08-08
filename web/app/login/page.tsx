@@ -147,12 +147,6 @@ export default function LoginPage() {
                 Esqueci minha senha
               </Link>
             </p>
-            <p className="mt-3 text-center text-sm text-muted-foreground">
-              Não tem conta?{" "}
-              <Link href="/register" className="text-primary hover:underline">
-                Cadastre sua barbearia
-              </Link>
-            </p>
           </form>
         )}
       </div>

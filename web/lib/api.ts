@@ -180,26 +180,6 @@ export async function login(
   return body as Session;
 }
 
-/** Cadastro público de barbearia: cria tenant+admin e já autentica (igual login). */
-export async function register(data: {
-  barbershopName: string;
-  slug: string;
-  adminName: string;
-  email: string;
-  password: string;
-}) {
-  const res = await fetch(`${API_BASE}/auth/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include", // recebe o cookie httpOnly do refresh
-    body: JSON.stringify(data),
-  });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(res.status, parseError(res.status, body));
-  setSession(body);
-  return body as Session;
-}
-
 /** Logout: revoga o refresh (backend) e limpa a sessão local. */
 export async function logout() {
   try {
