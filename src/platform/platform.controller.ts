@@ -8,11 +8,19 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { PlatformService } from './platform.service';
 import { PlatformAuthGuard, PlatformUser } from './platform-auth.guard';
+import { SLUG_MAX, SLUG_MESSAGE, SLUG_MIN, SLUG_REGEX } from '../auth/dto/slug';
 
 class PlatformLoginDto {
   @IsEmail()
@@ -21,6 +29,33 @@ class PlatformLoginDto {
   @IsString()
   @IsNotEmpty()
   password: string;
+}
+
+class CreateTenantDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  barbershopName: string;
+
+  @IsString()
+  @Matches(SLUG_REGEX, { message: SLUG_MESSAGE })
+  @MinLength(SLUG_MIN)
+  @MaxLength(SLUG_MAX)
+  slug: string;
+
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  adminName: string;
+
+  @IsEmail()
+  @MaxLength(180)
+  adminEmail: string;
+
+  @IsString()
+  @MinLength(8)
+  @MaxLength(72)
+  adminPassword: string;
 }
 
 const who = (req: Request) =>
@@ -57,6 +92,14 @@ export class PlatformController {
   @Get('tenants/:id')
   get(@Param('id') id: string) {
     return this.platform.getTenant(id);
+  }
+
+  /** Cria uma nova barbearia (só o operador da plataforma pode). */
+  @UseGuards(PlatformAuthGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('tenants')
+  create(@Body() dto: CreateTenantDto, @Req() req: Request) {
+    return this.platform.createTenant(dto, who(req));
   }
 
   @UseGuards(PlatformAuthGuard)

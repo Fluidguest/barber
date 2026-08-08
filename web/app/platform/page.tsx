@@ -119,6 +119,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
+  const [showNew, setShowNew] = useState(false);
 
   const call = useCallback(
     async (path: string, init?: RequestInit) => {
@@ -130,7 +131,13 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
         onLogout();
         throw new Error("Sessão expirada");
       }
-      if (!r.ok) throw new Error("Falha na operação");
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        const msg = Array.isArray(body?.message)
+          ? body.message.join(", ")
+          : (body?.message ?? "Falha na operação");
+        throw new Error(msg);
+      }
       return r.json();
     },
     [token, onLogout],
@@ -171,10 +178,29 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
           <h1 className="text-2xl font-semibold">Painel da Plataforma</h1>
           <p className="text-sm text-muted-foreground">Barbearias clientes</p>
         </div>
-        <button onClick={onLogout} className="rounded-lg border border-border px-3 py-1.5 text-sm hover:border-primary">
-          Sair
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowNew(true)}
+            className="btn-gold rounded-lg px-3 py-1.5 text-sm font-semibold"
+          >
+            + Nova barbearia
+          </button>
+          <button onClick={onLogout} className="rounded-lg border border-border px-3 py-1.5 text-sm hover:border-primary">
+            Sair
+          </button>
+        </div>
       </header>
+
+      {showNew && (
+        <NovaBarbearia
+          call={call}
+          onClose={() => setShowNew(false)}
+          onCreated={() => {
+            setShowNew(false);
+            void load();
+          }}
+        />
+      )}
 
       {stats && (
         <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
@@ -250,6 +276,139 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
         </table>
       </div>
     </div>
+  );
+}
+
+/** Deriva um slug válido (minúsculas, sem acento, hífen simples) a partir do nome. */
+function slugify(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-");
+}
+
+/** Modal do operador para provisionar uma nova barbearia + seu admin inicial. */
+function NovaBarbearia({
+  call,
+  onClose,
+  onCreated,
+}: {
+  call: (path: string, init?: RequestInit) => Promise<unknown>;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [barbershopName, setBarbershopName] = useState("");
+  const [slug, setSlug] = useState("");
+  const [slugEdited, setSlugEdited] = useState(false);
+  const [adminName, setAdminName] = useState("");
+  const [adminEmail, setAdminEmail] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  function onNameChange(v: string) {
+    setBarbershopName(v);
+    if (!slugEdited) setSlug(slugify(v));
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      await call("/tenants", {
+        method: "POST",
+        body: JSON.stringify({ barbershopName, slug, adminName, adminEmail, adminPassword }),
+      });
+      onCreated();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao criar a barbearia");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <form
+        onSubmit={submit}
+        className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-2xl"
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Nova barbearia</h2>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            ✕
+          </button>
+        </div>
+
+        <Campo label="Nome da barbearia" value={barbershopName} onChange={onNameChange} />
+        <label className="mb-3 block">
+          <span className="mb-1 block text-sm text-muted-foreground">Endereço (slug)</span>
+          <input
+            value={slug}
+            onChange={(e) => {
+              setSlugEdited(true);
+              setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-{2,}/g, "-"));
+            }}
+            required
+            minLength={3}
+            maxLength={40}
+            className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 outline-none focus:border-primary"
+          />
+        </label>
+
+        <div className="my-3 border-t border-border pt-3 text-xs uppercase tracking-wide text-muted-foreground">
+          Administrador da barbearia
+        </div>
+        <Campo label="Nome do admin" value={adminName} onChange={setAdminName} />
+        <Campo label="E-mail do admin" type="email" value={adminEmail} onChange={setAdminEmail} />
+        <Campo label="Senha inicial (mín. 8)" type="password" value={adminPassword} onChange={setAdminPassword} />
+
+        {error && (
+          <div className="mb-3 rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
+            {error}
+          </div>
+        )}
+
+        <div className="mt-2 flex gap-2">
+          <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-border py-2.5 text-sm hover:border-primary">
+            Cancelar
+          </button>
+          <button type="submit" disabled={loading} className="btn-gold flex-1 rounded-lg py-2.5 text-sm font-semibold disabled:opacity-50">
+            {loading ? "Criando..." : "Criar barbearia"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function Campo({
+  label,
+  value,
+  onChange,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+}) {
+  return (
+    <label className="mb-3 block">
+      <span className="mb-1 block text-sm text-muted-foreground">{label}</span>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required
+        minLength={type === "password" ? 8 : undefined}
+        className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 outline-none focus:border-primary"
+      />
+    </label>
   );
 }
 

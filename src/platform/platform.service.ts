@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -6,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
+import { randomUUID } from 'crypto';
 import { SystemPrismaService } from '../prisma/system-prisma.service';
 import { PLATFORM_SCOPE } from './platform-auth.guard';
 
@@ -49,6 +51,53 @@ export class PlatformService {
     );
     this.logger.log(`Login de plataforma: ${admin.email}`);
     return { accessToken, name: admin.name, email: admin.email };
+  }
+
+  /**
+   * Cria uma nova barbearia (tenant + unidade "Matriz" + usuário ADMIN inicial).
+   * Só o operador da plataforma faz isso — não há autoatendimento. Usa a conexão
+   * de sistema (bypassa RLS) para provisionar o tenant do zero. O admin da nova
+   * barbearia recebe uma conta-dono própria (ownerAccountId novo) e entra pelo
+   * login normal com o e-mail/senha definidos aqui.
+   */
+  async createTenant(
+    input: {
+      barbershopName: string;
+      slug: string;
+      adminName: string;
+      adminEmail: string;
+      adminPassword: string;
+    },
+    byAdminEmail: string,
+  ) {
+    const slug = input.slug.toLowerCase().trim();
+    const exists = await this.system.tenant.findUnique({ where: { slug } });
+    if (exists) throw new ConflictException('Slug de barbearia já está em uso');
+
+    const passwordHash = await argon2.hash(input.adminPassword);
+    const tenant = await this.system.$transaction(async (tx) => {
+      const t = await tx.tenant.create({
+        data: { name: input.barbershopName.trim(), slug, status: 'TRIAL' },
+      });
+      await tx.unit.create({ data: { tenantId: t.id, name: 'Matriz' } });
+      await tx.user.create({
+        data: {
+          tenantId: t.id,
+          name: input.adminName.trim(),
+          email: input.adminEmail.toLowerCase().trim(),
+          passwordHash,
+          role: 'ADMIN',
+          isActive: true,
+          ownerAccountId: randomUUID(),
+        },
+      });
+      return t;
+    });
+
+    this.logger.warn(
+      `${byAdminEmail} criou a barbearia ${slug} (admin: ${input.adminEmail})`,
+    );
+    return { id: tenant.id, name: tenant.name, slug: tenant.slug, status: tenant.status };
   }
 
   /** Visão geral do negócio. */
